@@ -7,7 +7,8 @@ import { ScrollReveal } from "@/components/shared/ScrollReveal";
 import { PastEventsBook } from "@/components/shared/PastEventsBook";
 import { Button } from "@/components/ui/button";
 import { Calendar, ArrowRight } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { MediaLightbox } from "@/components/shared/MediaLightbox";
 import { SITE_URL, createBreadcrumbSchema, createWebPageSchema } from "@/lib/seo";
@@ -35,6 +36,7 @@ interface MediaItem {
 }
 
 export default function Events() {
+  const [searchParams] = useSearchParams();
   const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
   const [pastEvents, setPastEvents] = useState<Event[]>([]);
   const [eventMedia, setEventMedia] = useState<Record<string, MediaItem[]>>({});
@@ -42,6 +44,9 @@ export default function Events() {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxMedia, setLightboxMedia] = useState<MediaItem[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState(0);
+  const upcomingSectionRef = useRef<HTMLElement | null>(null);
+  const pastSectionRef = useRef<HTMLElement | null>(null);
+  const focusedEventId = searchParams.get("event");
 
   useEffect(() => {
     const fetchEvents = async () => {
@@ -94,6 +99,20 @@ export default function Events() {
 
     fetchEvents();
   }, []);
+
+  useEffect(() => {
+    if (isLoading || !focusedEventId) return;
+
+    const isUpcomingEvent = upcomingEvents.some((event) => event.id === focusedEventId);
+    const isPastEvent = pastEvents.some((event) => event.id === focusedEventId);
+    const targetSection = isUpcomingEvent
+      ? upcomingSectionRef.current
+      : isPastEvent
+        ? pastSectionRef.current
+        : null;
+
+    targetSection?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [focusedEventId, isLoading, pastEvents, upcomingEvents]);
 
   const openMediaLightbox = (eventId: string, index: number = 0) => {
     const media = eventMedia[eventId];
@@ -175,7 +194,7 @@ export default function Events() {
       <SectionDivider />
 
       {/* Upcoming Events */}
-      <section className="section-padding">
+      <section ref={upcomingSectionRef} className="section-padding">
         <div className="container-wide">
           <ScrollReveal variant="fade-up">
             <SectionHeading 
@@ -195,6 +214,7 @@ export default function Events() {
                 eventMedia={eventMedia}
                 onMediaClick={openMediaLightbox}
                 browseInstruction="Use the arrows to browse through upcoming events"
+                focusedEventId={focusedEventId}
               />
             </ScrollReveal>
           ) : (
@@ -212,7 +232,7 @@ export default function Events() {
       <SectionDivider />
 
       {/* Past Events - Book Style Gallery */}
-      <section className="section-padding bg-secondary/20">
+      <section ref={pastSectionRef} className="section-padding bg-secondary/20">
         <div className="container-wide">
           <ScrollReveal variant="fade-up">
             <SectionHeading 
@@ -233,6 +253,7 @@ export default function Events() {
                 eventMedia={eventMedia}
                 onMediaClick={openMediaLightbox}
                 browseInstruction="Use the arrows to browse through past events"
+                focusedEventId={focusedEventId}
               />
             </ScrollReveal>
           )}

@@ -1,6 +1,7 @@
-import { useState } from "react";
-import { ChevronLeft, ChevronRight, Calendar, MapPin, Clock, Image, ExternalLink, Sparkles, BookOpen, ArrowRight } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ChevronLeft, ChevronRight, Calendar, MapPin, Clock, Image, ExternalLink, Sparkles, BookOpen, ArrowRight, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 import {
   Dialog,
   DialogContent,
@@ -44,6 +45,7 @@ interface PastEventsBookProps {
   eventMedia: Record<string, MediaItem[]>;
   onMediaClick: (eventId: string, index: number) => void;
   browseInstruction?: string;
+  focusedEventId?: string | null;
 }
 
 export function PastEventsBook({
@@ -51,8 +53,10 @@ export function PastEventsBook({
   eventMedia,
   onMediaClick,
   browseInstruction = "Use the arrows to browse through past events",
+  focusedEventId = null,
 }: PastEventsBookProps) {
   const isMobile = useIsMobile();
+  const { toast } = useToast();
   const FLIP_DURATION_MS = 600;
   const [currentSpread, setCurrentSpread] = useState(0);
   const [isFlipping, setIsFlipping] = useState(false);
@@ -68,6 +72,22 @@ export function PastEventsBook({
 
   const totalSpreads = Math.max(spreads.length, 1);
   const currentEventsPair = spreads[currentSpread] || [];
+
+  useEffect(() => {
+    if (!focusedEventId || events.length === 0) return;
+
+    const focusedEventIndex = events.findIndex((event) => event.id === focusedEventId);
+    if (focusedEventIndex === -1) return;
+
+    const spreadIndex = Math.floor(focusedEventIndex / 2);
+    const cardIndex = focusedEventIndex % 2;
+
+    setCurrentSpread(spreadIndex);
+    setIsFlipping(false);
+    setFlipDirection(null);
+    setFlippedCards(new Set([cardIndex]));
+    setMobileFlippedCards(new Set([focusedEventId]));
+  }, [events, focusedEventId]);
 
   const renderRegistrationButtons = (event: PastEvent, compact = false) => {
     const registrationLinks = parseEventRegistrationLinks(event.registration_link);
@@ -90,6 +110,52 @@ export function PastEventsBook({
       </div>
     );
   };
+
+  const copyEventLink = async (event: PastEvent) => {
+    const eventUrl = `${window.location.origin}/events?event=${encodeURIComponent(event.id)}`;
+
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(eventUrl);
+      } else {
+        const textArea = document.createElement("textarea");
+        textArea.value = eventUrl;
+        textArea.setAttribute("readonly", "");
+        textArea.style.position = "fixed";
+        textArea.style.left = "-9999px";
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textArea);
+      }
+
+      toast({
+        title: "Event link copied",
+        description: "The direct event link is ready to share.",
+      });
+    } catch (error) {
+      console.error("Error copying event link:", error);
+      toast({
+        title: "Could not copy link",
+        description: "Please try again from your browser.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const renderCopyLinkButton = (event: PastEvent, compact = false) => (
+    <div onClick={(e) => e.stopPropagation()} className={compact ? "mb-1.5 sm:mb-2" : "mb-3"}>
+      <Button
+        variant="outline"
+        size="sm"
+        className={compact ? "gap-1 w-full text-[10px] sm:text-sm" : "gap-2 w-full"}
+        onClick={() => copyEventLink(event)}
+      >
+        <Copy size={compact ? 12 : 14} />
+        Copy Event Link
+      </Button>
+    </div>
+  );
   const leftEvent = currentEventsPair[0];
   const rightEvent = currentEventsPair[1];
   const targetSpread =
@@ -360,6 +426,8 @@ export function PastEventsBook({
                 )}
               </div>
 
+              {renderCopyLinkButton(event, true)}
+
               {/* Media Button - after event details */}
               {hasMedia && (
                 <div onClick={(e) => e.stopPropagation()} className="mb-1.5 sm:mb-3">
@@ -370,7 +438,7 @@ export function PastEventsBook({
               {/* Description */}
               {event.description && (
                 <div className="flex-1 overflow-y-auto mb-1.5 sm:mb-3">
-                  <p className="text-[10px] sm:text-sm text-muted-foreground leading-relaxed">
+                  <p className="whitespace-pre-wrap text-[10px] sm:text-sm text-muted-foreground leading-relaxed">
                     {event.description}
                   </p>
                 </div>
@@ -654,6 +722,8 @@ export function PastEventsBook({
                           )}
                         </div>
 
+                        {renderCopyLinkButton(event)}
+
                         {hasMedia && (
                           <div onClick={(e) => e.stopPropagation()} className="mb-3">
                             {renderMediaGallery(event)}
@@ -662,7 +732,7 @@ export function PastEventsBook({
 
                         {event.description && (
                           <div className="flex-1 overflow-y-auto mb-3">
-                            <p className="text-sm text-muted-foreground leading-relaxed">
+                            <p className="whitespace-pre-wrap text-sm text-muted-foreground leading-relaxed">
                               {event.description}
                             </p>
                           </div>

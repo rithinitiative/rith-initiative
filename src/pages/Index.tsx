@@ -343,7 +343,10 @@ function EventsPreviewSection() {
                 <div className="space-y-6">
                   {events.map((event, index) =>
                 <ScrollReveal key={event.id} variant="fade-up" delay={index * 100}>
-                      <div className="p-6 rounded-xl bg-card border border-border/50 shadow-soft hover:shadow-elevated transition-all duration-300">
+                      <Link
+                        to={`/events?event=${encodeURIComponent(event.id)}`}
+                        className="block p-6 rounded-xl bg-card border border-border/50 shadow-soft hover:shadow-elevated hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 transition-all duration-300"
+                        aria-label={`View details for ${event.title}`}>
                         <div>
                           <h4 className="font-heading text-lg font-semibold text-foreground mb-1">{event.title}</h4>
                           <p className="text-primary font-medium text-sm">
@@ -352,7 +355,7 @@ function EventsPreviewSection() {
                           </p>
                           {event.location && <p className="text-muted-foreground text-sm">{event.location}</p>}
                         </div>
-                      </div>
+                      </Link>
                     </ScrollReveal>
                 )}
                 </div> :

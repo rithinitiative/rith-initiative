@@ -4,8 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Calendar, MapPin, Edit, Archive, Trash2, RotateCcw } from 'lucide-react';
-import { format } from 'date-fns';
-import { splitEventsByTimeline } from '@/lib/events';
+import { formatEventDateRange, splitEventsByTimeline } from '@/lib/events';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -145,7 +144,7 @@ export default function AdminEvents() {
           <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
             <span className="flex items-center gap-1">
               <Calendar size={14} />
-              {format(new Date(event.start_date), 'MMM d, yyyy')}
+              {formatEventDateRange(event)}
             </span>
             {event.time && (
               <span>{event.time}</span>

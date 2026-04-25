@@ -1,3 +1,5 @@
+import { format } from "date-fns";
+
 export interface EventDateFields {
   start_date: string;
   end_date: string | null;
@@ -30,4 +32,28 @@ export const splitEventsByTimeline = <T extends EventDateFields>(
   });
 
   return { upcoming, past };
+};
+
+export const formatEventDateRange = (event: EventDateFields): string => {
+  const startDate = new Date(event.start_date);
+
+  if (!event.end_date) {
+    return format(startDate, "MMMM d, yyyy");
+  }
+
+  const endDate = new Date(event.end_date);
+
+  if (startDate.toDateString() === endDate.toDateString()) {
+    return format(startDate, "MMMM d, yyyy");
+  }
+
+  if (startDate.getFullYear() === endDate.getFullYear()) {
+    if (startDate.getMonth() === endDate.getMonth()) {
+      return `${format(startDate, "MMMM d")}-${format(endDate, "d, yyyy")}`;
+    }
+
+    return `${format(startDate, "MMMM d")} - ${format(endDate, "MMMM d, yyyy")}`;
+  }
+
+  return `${format(startDate, "MMMM d, yyyy")} - ${format(endDate, "MMMM d, yyyy")}`;
 };

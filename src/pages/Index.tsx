@@ -11,7 +11,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { createWebPageSchema, organizationSchema, websiteSchema } from "@/lib/seo";
-import { splitEventsByTimeline } from "@/lib/events";
+import { formatEventDateRange, splitEventsByTimeline } from "@/lib/events";
 import communityGatheringImage from "@/assets/community-gathering.jpg";
 import heroCulturalEventImage from "@/assets/hero-cultural-event.jpg";
 
@@ -347,7 +347,7 @@ function EventsPreviewSection() {
                         <div>
                           <h4 className="font-heading text-lg font-semibold text-foreground mb-1">{event.title}</h4>
                           <p className="text-primary font-medium text-sm">
-                            {format(new Date(event.start_date), "MMMM d, yyyy")}
+                            {formatEventDateRange(event)}
                             {event.time && ` • ${event.time}`}
                           </p>
                           {event.location && <p className="text-muted-foreground text-sm">{event.location}</p>}

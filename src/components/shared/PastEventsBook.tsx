@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { ChevronLeft, ChevronRight, Calendar, MapPin, Clock, Image, ExternalLink, Sparkles, BookOpen, ArrowRight } from "lucide-react";
-import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -17,6 +16,7 @@ import {
   CarouselPrevious,
 } from "@/components/ui/carousel";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { formatEventDateRange } from "@/lib/events";
 
 interface MediaItem {
   id: string;
@@ -290,7 +290,7 @@ export function PastEventsBook({
               <div className={`mt-1.5 sm:mt-3 pt-1.5 sm:pt-3 border-t border-border/30 ${side === 'left' ? 'text-left' : 'text-right'}`}>
                 <p className="text-[10px] sm:text-sm font-medium text-foreground truncate">{event.title}</p>
                 <p className="text-[10px] sm:text-xs text-muted-foreground">
-                  {format(new Date(event.start_date), 'MMMM d, yyyy')}
+                  {formatEventDateRange(event)}
                 </p>
                 <p className="text-[10px] sm:text-xs text-primary mt-0.5 sm:mt-1 italic">Click to see details →</p>
               </div>
@@ -322,7 +322,7 @@ export function PastEventsBook({
               <div className="space-y-0.5 sm:space-y-1.5 text-[10px] sm:text-sm text-muted-foreground mb-1.5 sm:mb-3">
                 <div className="flex items-center gap-1 sm:gap-2">
                   <Calendar size={10} className="text-primary flex-shrink-0 sm:w-[14px] sm:h-[14px]" />
-                  <span>{format(new Date(event.start_date), 'MMMM d, yyyy')}</span>
+                  <span>{formatEventDateRange(event)}</span>
                 </div>
                 {event.time && (
                   <div className="flex items-center gap-1 sm:gap-2">
@@ -424,7 +424,7 @@ export function PastEventsBook({
           <div className={`mt-1.5 sm:mt-3 pt-1.5 sm:pt-3 border-t border-border/30 ${side === "left" ? "text-left" : "text-right"}`}>
             <p className="text-[10px] sm:text-sm font-medium text-foreground truncate">{event.title}</p>
             <p className="text-[10px] sm:text-xs text-muted-foreground">
-              {format(new Date(event.start_date), "MMMM d, yyyy")}
+              {formatEventDateRange(event)}
             </p>
             <p className="text-[10px] sm:text-xs text-primary mt-0.5 sm:mt-1 italic">Click to see details →</p>
           </div>
@@ -600,7 +600,7 @@ export function PastEventsBook({
                       <div className="text-center">
                         <p className="text-sm font-semibold text-foreground truncate">{event.title}</p>
                         <p className="text-xs text-muted-foreground">
-                          {format(new Date(event.start_date), 'MMMM d, yyyy')}
+                          {formatEventDateRange(event)}
                         </p>
                         <p className="text-xs text-primary mt-1 italic">Tap to see details →</p>
                       </div>
@@ -628,7 +628,7 @@ export function PastEventsBook({
                         <div className="space-y-2 text-sm text-muted-foreground mb-3">
                           <div className="flex items-center gap-2">
                             <Calendar size={14} className="text-primary flex-shrink-0" />
-                            <span>{format(new Date(event.start_date), 'MMMM d, yyyy')}</span>
+                            <span>{formatEventDateRange(event)}</span>
                           </div>
                           {event.time && (
                             <div className="flex items-center gap-2">

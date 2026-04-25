@@ -11,7 +11,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { MediaLightbox } from "@/components/shared/MediaLightbox";
 import { SITE_URL, createBreadcrumbSchema, createWebPageSchema } from "@/lib/seo";
-import { splitEventsByTimeline } from "@/lib/events";
+import { parseEventRegistrationLinks, splitEventsByTimeline } from "@/lib/events";
 
 interface Event {
   id: string;
@@ -116,29 +116,33 @@ export default function Events() {
     { name: "Home", path: "/" },
     { name: "Events", path: "/events" },
   ]);
-  const eventSchemas = upcomingEvents.slice(0, 10).map((event) => ({
-    "@context": "https://schema.org",
-    "@type": "Event",
-    name: event.title,
-    startDate: event.start_date,
-    ...(event.end_date ? { endDate: event.end_date } : {}),
-    eventStatus: "https://schema.org/EventScheduled",
-    eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
-    ...(event.location
-      ? {
-          location: {
-            "@type": "Place",
-            name: event.location,
-          },
-        }
-      : {}),
-    organizer: {
-      "@type": "Organization",
-      name: "The Rith Initiative",
-      url: SITE_URL,
-    },
-    ...(event.registration_link ? { url: event.registration_link } : { url: `${SITE_URL}/events` }),
-  }));
+  const eventSchemas = upcomingEvents.slice(0, 10).map((event) => {
+    const registrationUrl = parseEventRegistrationLinks(event.registration_link)[0]?.url;
+
+    return {
+      "@context": "https://schema.org",
+      "@type": "Event",
+      name: event.title,
+      startDate: event.start_date,
+      ...(event.end_date ? { endDate: event.end_date } : {}),
+      eventStatus: "https://schema.org/EventScheduled",
+      eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
+      ...(event.location
+        ? {
+            location: {
+              "@type": "Place",
+              name: event.location,
+            },
+          }
+        : {}),
+      organizer: {
+        "@type": "Organization",
+        name: "The Rith Initiative",
+        url: SITE_URL,
+      },
+      url: registrationUrl || `${SITE_URL}/events`,
+    };
+  });
 
   return (
     <Layout>

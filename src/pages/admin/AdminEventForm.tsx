@@ -7,10 +7,15 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Save } from 'lucide-react';
+import { ArrowLeft, Plus, Save, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { ImageUpload } from '@/components/admin/ImageUpload';
 import { SimpleMediaUpload, SimpleMediaItem } from '@/components/admin/SimpleMediaUpload';
+import {
+  EventRegistrationLink,
+  parseEventRegistrationLinks,
+  serializeEventRegistrationLinks,
+} from '@/lib/events';
 
 interface EventFormData {
   title: string;
@@ -20,7 +25,7 @@ interface EventFormData {
   time: string;
   location: string;
   category: string;
-  registration_link: string;
+  registration_links: EventRegistrationLink[];
   capacity: string;
   featured_image_url: string;
 }
@@ -43,7 +48,7 @@ export default function AdminEventForm() {
     time: '',
     location: '',
     category: '',
-    registration_link: '',
+    registration_links: [],
     capacity: '',
     featured_image_url: '',
   });
@@ -69,7 +74,7 @@ export default function AdminEventForm() {
               time: data.time || '',
               location: data.location || '',
               category: data.category || '',
-              registration_link: data.registration_link || '',
+              registration_links: parseEventRegistrationLinks(data.registration_link),
               capacity: data.capacity?.toString() || '',
               featured_image_url: data.featured_image_url || '',
             });
@@ -95,6 +100,36 @@ export default function AdminEventForm() {
   ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleRegistrationLinkChange = (
+    index: number,
+    field: keyof EventRegistrationLink,
+    value: string
+  ) => {
+    setFormData((prev) => ({
+      ...prev,
+      registration_links: prev.registration_links.map((link, linkIndex) =>
+        linkIndex === index ? { ...link, [field]: value } : link
+      ),
+    }));
+  };
+
+  const handleAddRegistrationLink = () => {
+    setFormData((prev) => ({
+      ...prev,
+      registration_links: [
+        ...prev.registration_links,
+        { label: `Registration Link ${prev.registration_links.length + 1}`, url: '' },
+      ],
+    }));
+  };
+
+  const handleRemoveRegistrationLink = (index: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      registration_links: prev.registration_links.filter((_, linkIndex) => linkIndex !== index),
+    }));
   };
 
   const handleMediaChange = useCallback((media: SimpleMediaItem[]) => {
@@ -148,7 +183,7 @@ export default function AdminEventForm() {
         time: formData.time || null,
         location: formData.location || null,
         category: formData.category || null,
-        registration_link: formData.registration_link || null,
+        registration_link: serializeEventRegistrationLinks(formData.registration_links),
         capacity: formData.capacity ? parseInt(formData.capacity) : null,
         featured_image_url: formData.featured_image_url || null,
         created_by: user?.id,
@@ -352,16 +387,68 @@ export default function AdminEventForm() {
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="registration_link">Registration Link</Label>
-            <Input
-              id="registration_link"
-              name="registration_link"
-              type="url"
-              value={formData.registration_link}
-              onChange={handleChange}
-              placeholder="https://..."
-            />
+          <div className="space-y-3 rounded-lg border border-border p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <Label>Registration / Survey Links</Label>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Add one or more buttons visitors can use to register or open surveys.
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleAddRegistrationLink}
+                className="gap-2 shrink-0"
+              >
+                <Plus size={16} />
+                Add Link
+              </Button>
+            </div>
+
+            {formData.registration_links.length === 0 ? (
+              <div className="rounded-md bg-secondary/30 px-3 py-2 text-sm text-muted-foreground">
+                No registration or survey links added yet.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {formData.registration_links.map((link, index) => (
+                  <div key={index} className="grid gap-3 rounded-md bg-secondary/20 p-3 sm:grid-cols-[1fr_1.5fr_auto]">
+                    <div className="space-y-2">
+                      <Label htmlFor={`registration_label_${index}`}>Button Label</Label>
+                      <Input
+                        id={`registration_label_${index}`}
+                        value={link.label}
+                        onChange={(e) => handleRegistrationLinkChange(index, 'label', e.target.value)}
+                        placeholder={`Survey ${index + 1}`}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor={`registration_url_${index}`}>Link URL</Label>
+                      <Input
+                        id={`registration_url_${index}`}
+                        type="url"
+                        value={link.url}
+                        onChange={(e) => handleRegistrationLinkChange(index, 'url', e.target.value)}
+                        placeholder="https://..."
+                      />
+                    </div>
+                    <div className="flex items-end">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleRemoveRegistrationLink(index)}
+                        aria-label={`Remove registration link ${index + 1}`}
+                      >
+                        <Trash2 size={16} />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="space-y-2">

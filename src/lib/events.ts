@@ -5,6 +5,63 @@ export interface EventDateFields {
   end_date: string | null;
 }
 
+export interface EventRegistrationLink {
+  label: string;
+  url: string;
+}
+
+const DEFAULT_REGISTRATION_LABEL = "Register Now";
+
+const normalizeRegistrationLink = (
+  link: Partial<EventRegistrationLink> | string,
+  index: number
+): EventRegistrationLink | null => {
+  if (typeof link === "string") {
+    const url = link.trim();
+    return url ? { label: DEFAULT_REGISTRATION_LABEL, url } : null;
+  }
+
+  const url = link.url?.trim();
+  if (!url) return null;
+
+  return {
+    label: link.label?.trim() || `Registration Link ${index + 1}`,
+    url,
+  };
+};
+
+export const parseEventRegistrationLinks = (
+  registrationLink: string | null | undefined
+): EventRegistrationLink[] => {
+  const rawValue = registrationLink?.trim();
+  if (!rawValue) return [];
+
+  try {
+    const parsed = JSON.parse(rawValue);
+    const links = Array.isArray(parsed) ? parsed : parsed?.links;
+
+    if (Array.isArray(links)) {
+      return links
+        .map((link, index) => normalizeRegistrationLink(link, index))
+        .filter((link): link is EventRegistrationLink => Boolean(link));
+    }
+  } catch {
+    // Existing events store a single plain URL. Keep those working.
+  }
+
+  return [{ label: DEFAULT_REGISTRATION_LABEL, url: rawValue }];
+};
+
+export const serializeEventRegistrationLinks = (
+  links: EventRegistrationLink[]
+): string | null => {
+  const cleanLinks = links
+    .map((link, index) => normalizeRegistrationLink(link, index))
+    .filter((link): link is EventRegistrationLink => Boolean(link));
+
+  return cleanLinks.length > 0 ? JSON.stringify(cleanLinks) : null;
+};
+
 const getEventEndBoundary = (event: EventDateFields): Date => {
   const boundary = new Date(event.end_date ?? event.start_date);
   boundary.setHours(23, 59, 59, 999);

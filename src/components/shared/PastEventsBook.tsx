@@ -16,7 +16,7 @@ import {
   CarouselPrevious,
 } from "@/components/ui/carousel";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { formatEventDateRange } from "@/lib/events";
+import { formatEventDateRange, parseEventRegistrationLinks } from "@/lib/events";
 
 interface MediaItem {
   id: string;
@@ -68,6 +68,28 @@ export function PastEventsBook({
 
   const totalSpreads = Math.max(spreads.length, 1);
   const currentEventsPair = spreads[currentSpread] || [];
+
+  const renderRegistrationButtons = (event: PastEvent, compact = false) => {
+    const registrationLinks = parseEventRegistrationLinks(event.registration_link);
+    if (registrationLinks.length === 0) return null;
+
+    return (
+      <div onClick={(e) => e.stopPropagation()} className={compact ? "mb-1.5 sm:mb-2 space-y-1.5" : "mb-2 space-y-2"}>
+        {registrationLinks.map((link, index) => (
+          <Button
+            key={`${link.url}-${index}`}
+            variant="default"
+            size="sm"
+            className={compact ? "gap-1 w-full text-[10px] sm:text-sm" : "gap-1 w-full"}
+            onClick={() => window.open(link.url, '_blank')}
+          >
+            {link.label}
+            <ArrowRight size={compact ? 12 : 14} />
+          </Button>
+        ))}
+      </div>
+    );
+  };
   const leftEvent = currentEventsPair[0];
   const rightEvent = currentEventsPair[1];
   const targetSpread =
@@ -354,20 +376,8 @@ export function PastEventsBook({
                 </div>
               )}
 
-              {/* Registration button for upcoming events */}
-              {event.registration_link && (
-                <div onClick={(e) => e.stopPropagation()} className="mb-1.5 sm:mb-2">
-                  <Button 
-                    variant="default" 
-                    size="sm" 
-                    className="gap-1 w-full text-[10px] sm:text-sm"
-                    onClick={() => window.open(event.registration_link!, '_blank')}
-                  >
-                    Register Now
-                    <ArrowRight size={12} />
-                  </Button>
-                </div>
-              )}
+              {/* Registration buttons for upcoming events */}
+              {renderRegistrationButtons(event, true)}
 
               {/* Flip back hint - always at bottom */}
               <p className="text-[10px] sm:text-xs text-primary text-center italic mt-auto">Click to flip back</p>
@@ -658,19 +668,7 @@ export function PastEventsBook({
                           </div>
                         )}
 
-                        {event.registration_link && (
-                          <div onClick={(e) => e.stopPropagation()} className="mb-2">
-                            <Button 
-                              variant="default" 
-                              size="sm" 
-                              className="gap-1 w-full"
-                              onClick={() => window.open(event.registration_link!, '_blank')}
-                            >
-                              Register Now
-                              <ArrowRight size={14} />
-                            </Button>
-                          </div>
-                        )}
+                        {renderRegistrationButtons(event)}
 
                         <p className="text-xs text-primary text-center italic mt-auto">Tap to flip back</p>
                       </div>

@@ -26,6 +26,7 @@ interface BlogPost {
   excerpt: string | null;
   author_name: string | null;
   category: string | null;
+  featured_image_url?: string | null;
   published_at: string | null;
   created_at: string;
 }
@@ -180,6 +181,16 @@ export function BlogDetailModal({ post, open, onOpenChange }: BlogDetailModalPro
 
           {/* Scrollable Content Area */}
           <div className="max-h-[60vh] overflow-y-auto">
+            {post.featured_image_url && (
+              <div className="px-6 pb-4">
+                <img
+                  src={post.featured_image_url}
+                  alt={post.title}
+                  className="w-full max-h-80 object-cover rounded-lg border border-border"
+                />
+              </div>
+            )}
+
             {/* Content - Compact excerpt style */}
             <div className="px-6 pb-4">
               <p className="text-sm text-muted-foreground leading-relaxed line-clamp-4">

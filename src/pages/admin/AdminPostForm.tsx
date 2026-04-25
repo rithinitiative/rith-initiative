@@ -10,6 +10,7 @@ import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Save } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { ImageUpload } from '@/components/admin/ImageUpload';
 import { MediaManager, MediaItem } from '@/components/admin/MediaManager';
 import { FormBuilder, FormBuilderHandle, FormData as BlogFormData } from '@/components/admin/FormBuilder';
 
@@ -19,6 +20,7 @@ interface PostFormData {
   excerpt: string;
   author_name: string;
   category: string;
+  featured_image_url: string;
   is_published: boolean;
 }
 
@@ -40,6 +42,7 @@ export default function AdminPostForm() {
     excerpt: '',
     author_name: '',
     category: '',
+    featured_image_url: '',
     is_published: false,
   });
 
@@ -62,6 +65,7 @@ export default function AdminPostForm() {
               excerpt: data.excerpt || '',
               author_name: data.author_name || '',
               category: data.category || '',
+              featured_image_url: data.featured_image_url || '',
               is_published: data.is_published || false,
             });
           }
@@ -138,6 +142,7 @@ export default function AdminPostForm() {
         excerpt: formData.excerpt || null,
         author_name: formData.author_name || null,
         category: formData.category || null,
+        featured_image_url: formData.featured_image_url || null,
         is_published: formData.is_published,
         published_at: formData.is_published ? new Date().toISOString() : null,
         created_by: user?.id,
@@ -375,6 +380,12 @@ export default function AdminPostForm() {
               rows={2}
             />
           </div>
+
+          <ImageUpload
+            value={formData.featured_image_url}
+            onChange={(url) => setFormData((prev) => ({ ...prev, featured_image_url: url }))}
+            label="Blog Post Image"
+          />
 
 
           <div className="space-y-2">

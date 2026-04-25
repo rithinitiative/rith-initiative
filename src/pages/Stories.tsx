@@ -20,6 +20,7 @@ interface BlogPost {
   excerpt: string | null;
   author_name: string | null;
   category: string | null;
+  featured_image_url: string | null;
   published_at: string | null;
   created_at: string;
 }
@@ -61,7 +62,7 @@ function StoriesSection() {
       // Fetch one extra item to detect if more pages exist
       const { data, error } = await supabase
         .from('blog_posts')
-        .select('id, title, content, excerpt, author_name, category, published_at, created_at')
+        .select('id, title, content, excerpt, author_name, category, featured_image_url, published_at, created_at')
         .eq('is_published', true)
         .eq('is_archived', false)
         .order('published_at', { ascending: false, nullsFirst: false })
@@ -152,7 +153,15 @@ function StoriesSection() {
                     className="group bg-card rounded-2xl overflow-hidden border border-border/50 shadow-soft hover:shadow-elevated transition-all duration-300 cursor-pointer h-full"
                     onClick={() => handlePostClick(post)}
                   >
-                    <PlaceholderImage aspectRatio="video" label="Blog post image" className="rounded-none" />
+                    {post.featured_image_url ? (
+                      <img
+                        src={post.featured_image_url}
+                        alt={post.title}
+                        className="aspect-video w-full object-cover"
+                      />
+                    ) : (
+                      <PlaceholderImage aspectRatio="video" label="Blog post image" className="rounded-none" />
+                    )}
                     <div className="p-6">
                       {post.category && (
                         <span className="text-xs font-medium text-primary uppercase tracking-wide">

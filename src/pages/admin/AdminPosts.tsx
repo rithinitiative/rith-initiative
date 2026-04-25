@@ -27,6 +27,7 @@ interface BlogPost {
   excerpt: string | null;
   author_name: string | null;
   category: string | null;
+  featured_image_url: string | null;
   is_published: boolean;
   is_archived: boolean;
   published_at: string | null;

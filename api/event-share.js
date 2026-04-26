@@ -48,7 +48,7 @@ const fetchSupabase = async (path) => {
   return response.json();
 };
 
-module.exports = async (req, res) => {
+export default async function handler(req, res) {
   const eventId = Array.isArray(req.query.id) ? req.query.id[0] : req.query.id;
   const origin = getOrigin(req);
   const fallbackImage = `${origin}/og-image.png`;
@@ -105,4 +105,4 @@ module.exports = async (req, res) => {
     <p><a href="${escapeHtml(redirectUrl)}">View ${escapeHtml(title)}</a></p>
   </body>
 </html>`);
-};
+}

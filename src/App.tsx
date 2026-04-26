@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useParams } from "react-router-dom";
 import { Suspense, lazy } from "react";
 import { AuthProvider } from "@/hooks/useAuth";
 import { HelmetProvider } from "react-helmet-async";
@@ -42,6 +42,11 @@ function RouteLoadingFallback() {
   );
 }
 
+function EventShareRedirect() {
+  const { id } = useParams();
+  return <Navigate to={id ? `/events?event=${encodeURIComponent(id)}` : "/events"} replace />;
+}
+
 const App = () => (
   <HelmetProvider>
   <QueryClientProvider client={queryClient}>
@@ -56,6 +61,7 @@ const App = () => (
               <Route path="/" element={<Index />} />
               <Route path="/about" element={<About />} />
               <Route path="/events" element={<Events />} />
+              <Route path="/events/share/:id" element={<EventShareRedirect />} />
               <Route path="/stories" element={<Stories />} />
               <Route path="/shop" element={<Shop />} />
               <Route path="/donate" element={<Donate />} />

@@ -20,6 +20,7 @@
     }
   ],
   "rewrites": [
+    { "source": "/events/share/:id", "destination": "/api/event-share?id=:id" },
     { "source": "/(.*)", "destination": "/" }
   ]
 }

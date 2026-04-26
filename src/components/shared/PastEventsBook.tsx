@@ -48,6 +48,74 @@ interface PastEventsBookProps {
   focusedEventId?: string | null;
 }
 
+const escapeHtml = (value: string) =>
+  value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
+const legacyDescriptionToHtml = (description: string) =>
+  description
+    .split(/\n{2,}/)
+    .map((paragraph) => `<p>${escapeHtml(paragraph).replace(/\n/g, "<br />")}</p>`)
+    .join("")
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/\*([^*]+)\*/g, "<em>$1</em>")
+    .replace(/__([^_]+)__/g, "<u>$1</u>")
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+
+const sanitizeRichDescription = (description: string) => {
+  const rawHtml = /<\/?[a-z][\s\S]*>/i.test(description)
+    ? description
+    : legacyDescriptionToHtml(description);
+  const template = document.createElement("template");
+  template.innerHTML = rawHtml;
+  const allowedTags = new Set(["A", "B", "BR", "DIV", "EM", "I", "LI", "OL", "P", "STRONG", "U", "UL"]);
+
+  const cleanNode = (node: Node) => {
+    Array.from(node.childNodes).forEach((child) => {
+      if (child.nodeType !== Node.ELEMENT_NODE) return;
+
+      const element = child as HTMLElement;
+      if (!allowedTags.has(element.tagName)) {
+        element.replaceWith(...Array.from(element.childNodes));
+        return;
+      }
+
+      Array.from(element.attributes).forEach((attribute) => {
+        if (element.tagName === "A" && attribute.name === "href") return;
+        element.removeAttribute(attribute.name);
+      });
+
+      if (element.tagName === "A") {
+        const href = element.getAttribute("href") || "";
+        if (!/^(https?:|mailto:|tel:|\/)/i.test(href)) {
+          element.removeAttribute("href");
+        }
+        element.setAttribute("target", "_blank");
+        element.setAttribute("rel", "noopener noreferrer");
+        element.classList.add("font-medium", "text-primary", "underline", "underline-offset-2");
+      }
+
+      cleanNode(element);
+    });
+  };
+
+  cleanNode(template.content);
+  return template.innerHTML;
+};
+
+const renderRichDescription = (description: string, className: string) => {
+  return (
+    <div
+      className={`${className} [&_a]:font-medium [&_a]:text-primary [&_a]:underline [&_a]:underline-offset-2 [&_ol]:mb-2 [&_ol]:list-decimal [&_ol]:space-y-1 [&_ol]:pl-4 [&_ol:last-child]:mb-0 [&_p]:mb-2 [&_p:last-child]:mb-0 [&_ul]:mb-2 [&_ul]:list-disc [&_ul]:space-y-1 [&_ul]:pl-4 [&_ul:last-child]:mb-0`}
+      dangerouslySetInnerHTML={{ __html: sanitizeRichDescription(description) }}
+    />
+  );
+};
+
 export function PastEventsBook({
   events,
   eventMedia,
@@ -112,7 +180,7 @@ export function PastEventsBook({
   };
 
   const copyEventLink = async (event: PastEvent) => {
-    const eventUrl = `${window.location.origin}/events?event=${encodeURIComponent(event.id)}`;
+    const eventUrl = `${window.location.origin}/events/share/${encodeURIComponent(event.id)}`;
 
     try {
       if (navigator.clipboard && window.isSecureContext) {
@@ -438,9 +506,10 @@ export function PastEventsBook({
               {/* Description */}
               {event.description && (
                 <div className="flex-1 overflow-y-auto mb-1.5 sm:mb-3">
-                  <p className="whitespace-pre-wrap text-[10px] sm:text-sm text-muted-foreground leading-relaxed">
-                    {event.description}
-                  </p>
+                  {renderRichDescription(
+                    event.description,
+                    "text-[10px] sm:text-sm text-muted-foreground leading-relaxed"
+                  )}
                 </div>
               )}
 
@@ -732,9 +801,10 @@ export function PastEventsBook({
 
                         {event.description && (
                           <div className="flex-1 overflow-y-auto mb-3">
-                            <p className="whitespace-pre-wrap text-sm text-muted-foreground leading-relaxed">
-                              {event.description}
-                            </p>
+                            {renderRichDescription(
+                              event.description,
+                              "text-sm text-muted-foreground leading-relaxed"
+                            )}
                           </div>
                         )}
 

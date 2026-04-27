@@ -31,6 +31,21 @@ const getOrigin = (req) => {
   return `${proto}://${host}`;
 };
 
+const isCrawlerRequest = (req) => {
+  const userAgent = req.headers["user-agent"] || "";
+  return /(facebookexternalhit|facebot|twitterbot|slackbot|discordbot|linkedinbot|whatsapp|skypeuripreview|telegrambot|pinterest|vkshare|snapchat|imessage|applebot)/i.test(
+    userAgent
+  );
+};
+
+const getImageType = (imageUrl) => {
+  if (/\.png($|\?)/i.test(imageUrl)) return "image/png";
+  if (/\.jpe?g($|\?)/i.test(imageUrl)) return "image/jpeg";
+  if (/\.webp($|\?)/i.test(imageUrl)) return "image/webp";
+  if (/\.gif($|\?)/i.test(imageUrl)) return "image/gif";
+  return null;
+};
+
 const fetchSupabase = async (path) => {
   const supabaseUrl = process.env.VITE_SUPABASE_URL;
   const supabaseKey = process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -76,6 +91,13 @@ export default async function handler(req, res) {
   const description = truncate(stripRichText(event?.description || "") || DEFAULT_DESCRIPTION, 180);
   const redirectUrl = event?.id ? `${origin}/events?event=${encodeURIComponent(event.id)}` : `${origin}/events`;
   const shareUrl = event?.id ? `${origin}/events/share/${encodeURIComponent(event.id)}` : `${origin}/events`;
+  const imageType = getImageType(imageUrl);
+
+  if (!isCrawlerRequest(req)) {
+    res.setHeader("Cache-Control", "no-store");
+    res.redirect(302, redirectUrl);
+    return;
+  }
 
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=86400");
@@ -87,19 +109,21 @@ export default async function handler(req, res) {
     <title>${escapeHtml(title)} | The Rith Initiative</title>
     <meta name="description" content="${escapeHtml(description)}">
     <link rel="canonical" href="${escapeHtml(shareUrl)}">
-    <meta property="og:type" content="event">
+    <meta property="og:type" content="website">
     <meta property="og:url" content="${escapeHtml(shareUrl)}">
     <meta property="og:title" content="${escapeHtml(title)}">
     <meta property="og:description" content="${escapeHtml(description)}">
     <meta property="og:image" content="${escapeHtml(imageUrl)}">
+    <meta property="og:image:secure_url" content="${escapeHtml(imageUrl)}">
+    ${imageType ? `<meta property="og:image:type" content="${escapeHtml(imageType)}">` : ""}
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
     <meta property="og:image:alt" content="${escapeHtml(title)}">
     <meta property="og:site_name" content="The Rith Initiative">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="${escapeHtml(title)}">
     <meta name="twitter:description" content="${escapeHtml(description)}">
     <meta name="twitter:image" content="${escapeHtml(imageUrl)}">
-    <meta http-equiv="refresh" content="0; url=${escapeHtml(redirectUrl)}">
-    <script>window.location.replace(${JSON.stringify(redirectUrl)});</script>
   </head>
   <body>
     <p><a href="${escapeHtml(redirectUrl)}">View ${escapeHtml(title)}</a></p>

@@ -39,6 +39,27 @@ const getImageType = (imageUrl) => {
   return null;
 };
 
+const getShareImageUrl = (imageUrl) => {
+  if (!imageUrl) return imageUrl;
+
+  try {
+    const url = new URL(imageUrl);
+    if (url.pathname.includes("/storage/v1/object/public/")) {
+      url.pathname = url.pathname.replace(
+        "/storage/v1/object/public/",
+        "/storage/v1/render/image/public/"
+      );
+      url.searchParams.set("width", "1200");
+      url.searchParams.set("height", "630");
+      url.searchParams.set("resize", "contain");
+      url.searchParams.set("quality", "90");
+    }
+    return url.toString();
+  } catch {
+    return imageUrl;
+  }
+};
+
 const fetchSupabase = async (path) => {
   const supabaseUrl = process.env.VITE_SUPABASE_URL;
   const supabaseKey = process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -84,7 +105,8 @@ export default async function handler(req, res) {
   const description = truncate(stripRichText(event?.description || "") || DEFAULT_DESCRIPTION, 180);
   const redirectUrl = event?.id ? `${origin}/events?event=${encodeURIComponent(event.id)}` : `${origin}/events`;
   const shareUrl = event?.id ? `${origin}/events/share/${encodeURIComponent(event.id)}` : `${origin}/events`;
-  const imageType = getImageType(imageUrl);
+  const shareImageUrl = getShareImageUrl(imageUrl);
+  const imageType = getImageType(shareImageUrl);
 
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=86400");
@@ -100,8 +122,8 @@ export default async function handler(req, res) {
     <meta property="og:url" content="${escapeHtml(shareUrl)}">
     <meta property="og:title" content="${escapeHtml(title)}">
     <meta property="og:description" content="${escapeHtml(description)}">
-    <meta property="og:image" content="${escapeHtml(imageUrl)}">
-    <meta property="og:image:secure_url" content="${escapeHtml(imageUrl)}">
+    <meta property="og:image" content="${escapeHtml(shareImageUrl)}">
+    <meta property="og:image:secure_url" content="${escapeHtml(shareImageUrl)}">
     ${imageType ? `<meta property="og:image:type" content="${escapeHtml(imageType)}">` : ""}
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
@@ -110,7 +132,7 @@ export default async function handler(req, res) {
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="${escapeHtml(title)}">
     <meta name="twitter:description" content="${escapeHtml(description)}">
-    <meta name="twitter:image" content="${escapeHtml(imageUrl)}">
+    <meta name="twitter:image" content="${escapeHtml(shareImageUrl)}">
     <script>
       window.location.replace(${JSON.stringify(redirectUrl)});
     </script>

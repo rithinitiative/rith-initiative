@@ -31,13 +31,6 @@ const getOrigin = (req) => {
   return `${proto}://${host}`;
 };
 
-const isCrawlerRequest = (req) => {
-  const userAgent = req.headers["user-agent"] || "";
-  return /(facebookexternalhit|facebot|twitterbot|slackbot|discordbot|linkedinbot|whatsapp|skypeuripreview|telegrambot|pinterest|vkshare|snapchat|imessage|applebot)/i.test(
-    userAgent
-  );
-};
-
 const getImageType = (imageUrl) => {
   if (/\.png($|\?)/i.test(imageUrl)) return "image/png";
   if (/\.jpe?g($|\?)/i.test(imageUrl)) return "image/jpeg";
@@ -93,12 +86,6 @@ export default async function handler(req, res) {
   const shareUrl = event?.id ? `${origin}/events/share/${encodeURIComponent(event.id)}` : `${origin}/events`;
   const imageType = getImageType(imageUrl);
 
-  if (!isCrawlerRequest(req)) {
-    res.setHeader("Cache-Control", "no-store");
-    res.redirect(302, redirectUrl);
-    return;
-  }
-
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=86400");
   res.status(200).send(`<!doctype html>
@@ -124,6 +111,9 @@ export default async function handler(req, res) {
     <meta name="twitter:title" content="${escapeHtml(title)}">
     <meta name="twitter:description" content="${escapeHtml(description)}">
     <meta name="twitter:image" content="${escapeHtml(imageUrl)}">
+    <script>
+      window.location.replace(${JSON.stringify(redirectUrl)});
+    </script>
   </head>
   <body>
     <p><a href="${escapeHtml(redirectUrl)}">View ${escapeHtml(title)}</a></p>

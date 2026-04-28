@@ -11,13 +11,22 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { createWebPageSchema, organizationSchema, websiteSchema } from "@/lib/seo";
-import { formatEventDateRange, splitEventsByTimeline } from "@/lib/events";
+import {
+  EVENT_ORDER_ENTITY_ID,
+  EVENT_ORDER_ENTITY_TYPE,
+  EVENT_ORDER_MEDIA_TYPE,
+  formatEventDateRange,
+  parseEventOrder,
+  sortEventsByDisplayOrder,
+  splitEventsByTimeline,
+} from "@/lib/events";
 import communityGatheringImage from "@/assets/community-gathering.jpg";
 import heroCulturalEventImage from "@/assets/hero-cultural-event.jpg";
 
 interface Event {
   id: string;
   title: string;
+  created_at?: string;
   start_date: string;
   end_date: string | null;
   time: string | null;
@@ -264,13 +273,24 @@ function EventsPreviewSection() {
       try {
         const { data, error } = await supabase.
         from("events").
-        select("id, title, start_date, end_date, time, location, featured_image_url").
+        select("id, title, created_at, start_date, end_date, time, location, featured_image_url").
         eq("is_archived", false).
         order("start_date", { ascending: true });
 
         if (error) throw error;
+
+        const { data: orderSettings } = await supabase
+          .from("media")
+          .select("description")
+          .eq("entity_type", EVENT_ORDER_ENTITY_TYPE)
+          .eq("entity_id", EVENT_ORDER_ENTITY_ID)
+          .eq("media_type", EVENT_ORDER_MEDIA_TYPE)
+          .limit(1)
+          .maybeSingle();
+
+        const eventOrder = parseEventOrder(orderSettings?.description);
         const { upcoming } = splitEventsByTimeline(data || [], new Date());
-        const displayedUpcoming = upcoming.slice(0, 2);
+        const displayedUpcoming = sortEventsByDisplayOrder(upcoming, eventOrder);
         setEvents(displayedUpcoming);
 
         if (displayedUpcoming.length > 0) {
@@ -340,12 +360,12 @@ function EventsPreviewSection() {
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                 </div> :
               events.length > 0 ?
-                <div className="space-y-6">
+                <div className="max-h-[28rem] space-y-4 overflow-y-auto pr-2 md:pr-3 rounded-xl [scrollbar-width:thin] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-primary/40">
                   {events.map((event, index) =>
                 <ScrollReveal key={event.id} variant="fade-up" delay={index * 100}>
                       <Link
                         to={`/events?event=${encodeURIComponent(event.id)}`}
-                        className="block p-6 rounded-xl bg-card border border-border/50 shadow-soft hover:shadow-elevated hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 transition-all duration-300"
+                        className="block p-5 md:p-6 rounded-xl bg-card border border-border/50 shadow-soft hover:shadow-elevated hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 transition-all duration-300"
                         aria-label={`View details for ${event.title}`}>
                         <div>
                           <h4 className="font-heading text-lg font-semibold text-foreground mb-1">{event.title}</h4>

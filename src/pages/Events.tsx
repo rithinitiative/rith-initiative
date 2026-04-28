@@ -12,11 +12,20 @@ import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { MediaLightbox } from "@/components/shared/MediaLightbox";
 import { SITE_URL, createBreadcrumbSchema, createWebPageSchema } from "@/lib/seo";
-import { parseEventRegistrationLinks, splitEventsByTimeline } from "@/lib/events";
+import {
+  EVENT_ORDER_ENTITY_ID,
+  EVENT_ORDER_ENTITY_TYPE,
+  EVENT_ORDER_MEDIA_TYPE,
+  parseEventOrder,
+  parseEventRegistrationLinks,
+  sortEventsByDisplayOrder,
+  splitEventsByTimeline,
+} from "@/lib/events";
 
 interface Event {
   id: string;
   title: string;
+  created_at?: string;
   description: string | null;
   start_date: string;
   end_date: string | null;
@@ -59,14 +68,20 @@ export default function Events() {
 
         if (eventsError) throw eventsError;
 
+        const { data: orderSettings } = await supabase
+          .from('media')
+          .select('description')
+          .eq('entity_type', EVENT_ORDER_ENTITY_TYPE)
+          .eq('entity_id', EVENT_ORDER_ENTITY_ID)
+          .eq('media_type', EVENT_ORDER_MEDIA_TYPE)
+          .limit(1)
+          .maybeSingle();
+
+        const eventOrder = parseEventOrder(orderSettings?.description);
         const allEvents = events || [];
         const { upcoming, past } = splitEventsByTimeline(allEvents, new Date());
-        setUpcomingEvents(upcoming);
-        setPastEvents(
-          [...past].sort(
-            (a, b) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime()
-          )
-        );
+        setUpcomingEvents(sortEventsByDisplayOrder(upcoming, eventOrder));
+        setPastEvents(sortEventsByDisplayOrder(past, eventOrder));
 
         // Fetch media for all events
         if (allEvents.length > 0) {

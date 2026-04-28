@@ -91,6 +91,55 @@ export const splitEventsByTimeline = <T extends EventDateFields>(
   return { upcoming, past };
 };
 
+export const EVENT_ORDER_ENTITY_TYPE = "site_settings";
+export const EVENT_ORDER_ENTITY_ID = "00000000-0000-0000-0000-000000000001";
+export const EVENT_ORDER_MEDIA_TYPE = "event_order";
+
+export const parseEventOrder = (value: string | null | undefined): string[] => {
+  if (!value) return [];
+
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === "string") : [];
+  } catch {
+    return [];
+  }
+};
+
+export const serializeEventOrder = (eventIds: string[]): string =>
+  JSON.stringify(Array.from(new Set(eventIds)));
+
+export const sortEventsByManualOrder = <T extends EventDateFields & { id: string; created_at?: string }>(
+  events: T[],
+  eventOrder: string[]
+): T[] => {
+  const orderIndex = new Map(eventOrder.map((id, index) => [id, index]));
+
+  return [...events].sort((a, b) => {
+    const aOrder = orderIndex.get(a.id) ?? Number.MAX_SAFE_INTEGER;
+    const bOrder = orderIndex.get(b.id) ?? Number.MAX_SAFE_INTEGER;
+
+    if (aOrder !== bOrder) return aOrder - bOrder;
+
+    const dateComparison = new Date(a.start_date).getTime() - new Date(b.start_date).getTime();
+    if (dateComparison !== 0) return dateComparison;
+
+    return new Date(a.created_at ?? 0).getTime() - new Date(b.created_at ?? 0).getTime();
+  });
+};
+
+export const sortEventsByDisplayOrder = <T extends EventDateFields & { id: string; created_at?: string }>(
+  events: T[],
+  eventOrder: string[] = []
+): T[] =>
+  eventOrder.length > 0 ? sortEventsByManualOrder(events, eventOrder) :
+  [...events].sort((a, b) => {
+    const dateComparison = new Date(a.start_date).getTime() - new Date(b.start_date).getTime();
+    if (dateComparison !== 0) return dateComparison;
+
+    return new Date(a.created_at ?? 0).getTime() - new Date(b.created_at ?? 0).getTime();
+  });
+
 export const formatEventDateRange = (event: EventDateFields): string => {
   const startDate = new Date(event.start_date);
 

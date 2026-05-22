@@ -39,9 +39,14 @@ const values = [
 ];
 
 interface TeamMember {
+  id?: string;
   name: string;
   role?: string | null;
+  bio?: string | null;
+  section?: "board" | "advisory";
   photo_url?: string | null;
+  display_order?: number;
+  created_at?: string;
 }
 
 const fallbackBoardMembers: TeamMember[] = [
@@ -52,37 +57,71 @@ const fallbackBoardMembers: TeamMember[] = [
 
 const fallbackAdvisoryMembers: TeamMember[] = [{ name: "Priti Patil" }, { name: "Niraj Verma" }];
 
+const LOCAL_BIO_STORAGE_KEY = "rith-team-member-bio-preview";
+
+const isMissingBioColumnError = (error: unknown) => {
+  if (!error || typeof error !== "object") return false;
+
+  const { code, message } = error as { code?: string; message?: string };
+  return code === "42703" || Boolean(message?.toLowerCase().includes("'bio'"));
+};
+
+const getLocalBioPreview = () => {
+  try {
+    return JSON.parse(localStorage.getItem(LOCAL_BIO_STORAGE_KEY) || "{}") as Record<string, string>;
+  } catch {
+    return {};
+  }
+};
+
+const compareTeamMembers = (a: TeamMember, b: TeamMember) => {
+  const orderDiff = (a.display_order ?? 0) - (b.display_order ?? 0);
+  if (orderDiff !== 0) return orderDiff;
+
+  const createdAtDiff = new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
+  if (createdAtDiff !== 0) return createdAtDiff;
+
+  return a.name.localeCompare(b.name);
+};
+
 function TeamMemberCard({ member }: { member: TeamMember }) {
   return (
-    <div className="text-center">
+    <article className="flex h-full min-w-0 flex-col overflow-hidden rounded-lg border border-border/50 bg-card p-4 text-center shadow-soft transition-all duration-300 hover:shadow-elevated">
       {member.photo_url ? (
         <img
           src={member.photo_url}
           alt={member.name}
-          className="w-full aspect-square rounded-2xl mb-4 shadow-soft object-cover"
+          className="mb-4 aspect-square w-full rounded-lg object-cover shadow-soft"
         />
       ) : (
         <PlaceholderImage
           aspectRatio="square"
           label={member.name}
-          className="w-full rounded-2xl mb-4 shadow-soft"
+          className="mb-4 w-full rounded-lg shadow-soft"
         />
       )}
-      <h4 className="font-heading text-lg font-semibold text-foreground">{member.name}</h4>
-      {member.role && <p className="text-muted-foreground text-sm">{member.role}</p>}
-    </div>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <h4 className="font-heading text-lg font-semibold text-foreground">{member.name}</h4>
+        {member.role && <p className="text-sm text-muted-foreground">{member.role}</p>}
+        {member.bio && (
+          <p className="mt-4 border-t border-border/60 pt-4 text-left text-sm leading-relaxed text-muted-foreground [overflow-wrap:anywhere]">
+            {member.bio}
+          </p>
+        )}
+      </div>
+    </article>
   );
 }
 
 function TeamMembersGrid({ members }: { members: TeamMember[] }) {
   return (
-    <div className="flex flex-wrap justify-center gap-8">
+    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
       {members.map((member, index) => (
         <ScrollReveal
           key={`${member.name}-${index}`}
           variant="fade-up"
           delay={index * 100}
-          className="w-full max-w-[260px]"
+          className="h-full min-w-0"
         >
           <TeamMemberCard member={member} />
         </ScrollReveal>
@@ -99,11 +138,35 @@ export default function About() {
     let isMounted = true;
 
     const fetchTeamMembers = async () => {
-      const { data, error } = await supabase
+      const teamQuery = await supabase
         .from("team_members")
-        .select("name, role, section, photo_url, display_order")
-        .order("display_order", { ascending: true });
+        .select("id, name, role, bio, section, photo_url, display_order, created_at")
+        .order("section", { ascending: true })
+        .order("display_order", { ascending: true })
+        .order("created_at", { ascending: true });
 
+      if (teamQuery.error && isMissingBioColumnError(teamQuery.error)) {
+        const fallbackQuery = await supabase
+          .from("team_members")
+          .select("id, name, role, section, photo_url, display_order, created_at")
+          .order("section", { ascending: true })
+          .order("display_order", { ascending: true })
+          .order("created_at", { ascending: true });
+
+        if (fallbackQuery.error) {
+          console.error("Error fetching team members:", fallbackQuery.error);
+          return;
+        }
+
+        const localBios = getLocalBioPreview();
+        teamQuery.data = (fallbackQuery.data || []).map((member) => ({
+          ...member,
+          bio: localBios[member.id] || null,
+        }));
+        teamQuery.error = null;
+      }
+
+      const { data, error } = teamQuery;
       if (error) {
         console.error("Error fetching team members:", error);
         return;
@@ -113,18 +176,30 @@ export default function About() {
 
       const board = teamRows
         .filter((member) => member.section === "board")
+        .sort(compareTeamMembers)
         .map((member) => ({
+          id: "id" in member ? member.id : undefined,
           name: member.name,
           role: member.role,
+          bio: member.bio,
+          section: member.section,
           photo_url: member.photo_url,
+          display_order: member.display_order,
+          created_at: member.created_at,
         }));
 
       const advisory = teamRows
         .filter((member) => member.section === "advisory")
+        .sort(compareTeamMembers)
         .map((member) => ({
+          id: "id" in member ? member.id : undefined,
           name: member.name,
           role: member.role,
+          bio: member.bio,
+          section: member.section,
           photo_url: member.photo_url,
+          display_order: member.display_order,
+          created_at: member.created_at,
         }));
 
       if (!isMounted) {

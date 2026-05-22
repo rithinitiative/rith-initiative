@@ -5,6 +5,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -24,7 +25,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { ImageUpload } from '@/components/admin/ImageUpload';
-import { Loader2, Pencil, Trash2, UserRound } from 'lucide-react';
+import { ArrowDown, ArrowUp, Loader2, Pencil, Trash2, UserRound } from 'lucide-react';
 
 type TeamSection = 'board' | 'advisory';
 
@@ -32,17 +33,19 @@ interface TeamMember {
   id: string;
   name: string;
   role: string | null;
+  bio: string | null;
   section: TeamSection;
   photo_url: string | null;
   display_order: number;
+  created_at: string;
 }
 
 interface TeamFormState {
   name: string;
   role: string;
+  bio: string;
   section: TeamSection;
   photoUrl: string;
-  displayOrder: number;
 }
 
 const SECTION_LABELS: Record<TeamSection, string> = {
@@ -58,10 +61,66 @@ const SECTION_ORDER: Record<TeamSection, number> = {
 const DEFAULT_FORM: TeamFormState = {
   name: '',
   role: '',
+  bio: '',
   section: 'board',
   photoUrl: '',
-  displayOrder: 0,
 };
+
+const LOCAL_BIO_STORAGE_KEY = 'rith-team-member-bio-preview';
+
+const isMissingBioColumnError = (error: unknown) => {
+  if (!error || typeof error !== 'object') return false;
+
+  const { code, message } = error as { code?: string; message?: string };
+  return code === '42703' || Boolean(message?.toLowerCase().includes("'bio'"));
+};
+
+const getLocalBioPreview = () => {
+  try {
+    return JSON.parse(localStorage.getItem(LOCAL_BIO_STORAGE_KEY) || '{}') as Record<string, string>;
+  } catch {
+    return {};
+  }
+};
+
+const setLocalBioPreview = (memberId: string, bio: string) => {
+  const bios = getLocalBioPreview();
+
+  if (bio) {
+    bios[memberId] = bio;
+  } else {
+    delete bios[memberId];
+  }
+
+  localStorage.setItem(LOCAL_BIO_STORAGE_KEY, JSON.stringify(bios));
+};
+
+const getNextDisplayOrder = (members: TeamMember[], section: TeamSection, excludeId?: string) => {
+  const sectionOrders = members
+    .filter((member) => member.section === section && member.id !== excludeId)
+    .map((member) => member.display_order)
+    .filter(Number.isFinite);
+
+  return sectionOrders.length ? Math.max(...sectionOrders) + 1 : 0;
+};
+
+const compareTeamMembers = (a: TeamMember, b: TeamMember) => {
+  const sectionDiff = SECTION_ORDER[a.section] - SECTION_ORDER[b.section];
+  if (sectionDiff !== 0) return sectionDiff;
+
+  const orderDiff = (a.display_order ?? 0) - (b.display_order ?? 0);
+  if (orderDiff !== 0) return orderDiff;
+
+  const createdAtDiff = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+  if (createdAtDiff !== 0) return createdAtDiff;
+
+  return a.name.localeCompare(b.name);
+};
+
+const prepareNewMemberForm = (members: TeamMember[], section: TeamSection) => ({
+  ...DEFAULT_FORM,
+  section,
+});
 
 export default function AdminTeam() {
   const [members, setMembers] = useState<TeamMember[]>([]);
@@ -69,20 +128,13 @@ export default function AdminTeam() {
   const [isSaving, setIsSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formState, setFormState] = useState<TeamFormState>(DEFAULT_FORM);
+  const [isBioColumnAvailable, setIsBioColumnAvailable] = useState(true);
 
   const { user } = useAuth();
   const { toast } = useToast();
 
   const sortedMembers = useMemo(() => {
-    return [...members].sort((a, b) => {
-      const sectionDiff = SECTION_ORDER[a.section] - SECTION_ORDER[b.section];
-      if (sectionDiff !== 0) return sectionDiff;
-
-      const orderDiff = (a.display_order ?? 0) - (b.display_order ?? 0);
-      if (orderDiff !== 0) return orderDiff;
-
-      return a.name.localeCompare(b.name);
-    });
+    return [...members].sort(compareTeamMembers);
   }, [members]);
 
   const boardMembers = sortedMembers.filter((member) => member.section === 'board');
@@ -90,12 +142,39 @@ export default function AdminTeam() {
 
   const fetchMembers = async () => {
     try {
-      const { data, error } = await supabase
+      const teamQuery = await supabase
         .from('team_members')
-        .select('id, name, role, section, photo_url, display_order');
+        .select('id, name, role, bio, section, photo_url, display_order, created_at')
+        .order('section', { ascending: true })
+        .order('display_order', { ascending: true })
+        .order('created_at', { ascending: true });
 
+      if (teamQuery.error && isMissingBioColumnError(teamQuery.error)) {
+        setIsBioColumnAvailable(false);
+
+        const fallbackQuery = await supabase
+          .from('team_members')
+          .select('id, name, role, section, photo_url, display_order, created_at')
+          .order('section', { ascending: true })
+          .order('display_order', { ascending: true })
+          .order('created_at', { ascending: true });
+
+        if (fallbackQuery.error) throw fallbackQuery.error;
+
+        const localBios = getLocalBioPreview();
+        const nextMembers = (fallbackQuery.data || []).map((member) => ({
+          ...member,
+          bio: localBios[member.id] || null,
+        })) as TeamMember[];
+        setMembers(nextMembers);
+        return;
+      }
+
+      const { data, error } = teamQuery;
       if (error) throw error;
-      setMembers((data || []) as TeamMember[]);
+      setIsBioColumnAvailable(true);
+      const nextMembers = (data || []) as TeamMember[];
+      setMembers(nextMembers);
     } catch (error) {
       console.error('Error fetching team members:', error);
       toast({
@@ -114,7 +193,7 @@ export default function AdminTeam() {
 
   const resetForm = () => {
     setEditingId(null);
-    setFormState(DEFAULT_FORM);
+    setFormState(prepareNewMemberForm(members, DEFAULT_FORM.section));
   };
 
   const startEdit = (member: TeamMember) => {
@@ -122,9 +201,9 @@ export default function AdminTeam() {
     setFormState({
       name: member.name,
       role: member.role || '',
+      bio: member.bio || '',
       section: member.section,
       photoUrl: member.photo_url || '',
-      displayOrder: member.display_order || 0,
     });
   };
 
@@ -137,41 +216,68 @@ export default function AdminTeam() {
       return;
     }
 
+    const existingMember = editingId ? members.find((member) => member.id === editingId) : null;
+    const displayOrder =
+      existingMember && existingMember.section === formState.section
+        ? existingMember.display_order
+        : getNextDisplayOrder(members, formState.section, editingId || undefined);
+
     const payload = {
       name,
       role: formState.role.trim() || null,
       section: formState.section,
       photo_url: formState.photoUrl.trim() || null,
-      display_order: Number.isFinite(formState.displayOrder) ? formState.displayOrder : 0,
+      display_order: displayOrder,
     };
+    const payloadWithBio = {
+      ...payload,
+      ...(isBioColumnAvailable ? { bio: formState.bio.trim() || null } : {}),
+    };
+    const enteredBio = formState.bio.trim();
 
     setIsSaving(true);
     try {
       if (editingId) {
         const { error } = await supabase
           .from('team_members')
-          .update(payload)
+          .update(payloadWithBio)
           .eq('id', editingId);
 
         if (error) throw error;
 
+        if (!isBioColumnAvailable) {
+          setLocalBioPreview(editingId, enteredBio);
+        }
+
         toast({
           title: 'Team member updated',
-          description: `${name} has been updated.`,
+          description:
+            !isBioColumnAvailable && enteredBio
+              ? `${name} has been updated. The bio is saved in this browser for local preview.`
+              : `${name} has been updated.`,
         });
       } else {
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('team_members')
           .insert({
-            ...payload,
+            ...payloadWithBio,
             created_by: user?.id,
-          });
+          })
+          .select('id')
+          .single();
 
         if (error) throw error;
 
+        if (!isBioColumnAvailable && data?.id) {
+          setLocalBioPreview(data.id, enteredBio);
+        }
+
         toast({
           title: 'Team member added',
-          description: `${name} has been added to ${SECTION_LABELS[formState.section]}.`,
+          description:
+            !isBioColumnAvailable && enteredBio
+              ? `${name} has been added. The bio is saved in this browser for local preview.`
+              : `${name} has been added to ${SECTION_LABELS[formState.section]}.`,
         });
       }
 
@@ -218,6 +324,60 @@ export default function AdminTeam() {
     }
   };
 
+  const handleMoveMember = async (
+    sectionMembers: TeamMember[],
+    memberIndex: number,
+    direction: 'up' | 'down',
+  ) => {
+    const targetIndex = direction === 'up' ? memberIndex - 1 : memberIndex + 1;
+    if (targetIndex < 0 || targetIndex >= sectionMembers.length) return;
+
+    const reorderedMembers = [...sectionMembers];
+    [reorderedMembers[memberIndex], reorderedMembers[targetIndex]] = [
+      reorderedMembers[targetIndex],
+      reorderedMembers[memberIndex],
+    ];
+
+    const updates = reorderedMembers.map((member, index) => ({
+      id: member.id,
+      display_order: index,
+    }));
+
+    setMembers((prevMembers) =>
+      prevMembers.map((member) => {
+        const update = updates.find((item) => item.id === member.id);
+        return update ? { ...member, display_order: update.display_order } : member;
+      }),
+    );
+
+    try {
+      const results = await Promise.all(
+        updates.map((update) =>
+          supabase
+            .from('team_members')
+            .update({ display_order: update.display_order })
+            .eq('id', update.id),
+        ),
+      );
+
+      const failedUpdate = results.find((result) => result.error);
+      if (failedUpdate?.error) throw failedUpdate.error;
+
+      toast({
+        title: 'Team order updated',
+        description: `${reorderedMembers[targetIndex].name} was moved ${direction}.`,
+      });
+    } catch (error) {
+      console.error('Error updating team order:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to update team order.',
+        variant: 'destructive',
+      });
+      fetchMembers();
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -243,7 +403,7 @@ export default function AdminTeam() {
           </div>
         ) : (
           <div className="space-y-3">
-            {sectionMembers.map((member) => (
+            {sectionMembers.map((member, index) => (
               <div
                 key={member.id}
                 className="flex flex-col gap-4 rounded-xl border border-border/50 bg-card p-4 shadow-soft sm:flex-row sm:items-center"
@@ -265,12 +425,41 @@ export default function AdminTeam() {
                   <p className="text-sm text-muted-foreground">
                     {member.role || 'No role specified'}
                   </p>
+                  {member.bio && (
+                    <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">
+                      {member.bio}
+                    </p>
+                  )}
                   <p className="text-xs text-muted-foreground/80 mt-1">
-                    Display order: {member.display_order ?? 0}
+                    Position {index + 1}
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => handleMoveMember(sectionMembers, index, 'up')}
+                    disabled={index === 0}
+                    aria-label={`Move ${member.name} up`}
+                    title={`Move ${member.name} up`}
+                  >
+                    <ArrowUp size={14} />
+                  </Button>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => handleMoveMember(sectionMembers, index, 'down')}
+                    disabled={index === sectionMembers.length - 1}
+                    aria-label={`Move ${member.name} down`}
+                    title={`Move ${member.name} down`}
+                  >
+                    <ArrowDown size={14} />
+                  </Button>
+
                   <Button
                     type="button"
                     variant="ghost"
@@ -366,12 +555,33 @@ export default function AdminTeam() {
           </div>
         </div>
 
+        <div className="space-y-2">
+          <Label htmlFor="member-bio">Bio / Description</Label>
+          <Textarea
+            id="member-bio"
+            value={formState.bio}
+            onChange={(e) => setFormState((prev) => ({ ...prev, bio: e.target.value }))}
+            placeholder="Short bio or description shown below this team member."
+            rows={4}
+          />
+          {!isBioColumnAvailable && (
+            <p className="text-xs text-amber-600">
+              Temporary preview mode: bios are saved in this browser only until the Supabase migration is applied.
+            </p>
+          )}
+        </div>
+
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
             <Label>Section *</Label>
             <Select
               value={formState.section}
-              onValueChange={(value: TeamSection) => setFormState((prev) => ({ ...prev, section: value }))}
+              onValueChange={(value: TeamSection) =>
+                setFormState((prev) => ({
+                  ...prev,
+                  section: value,
+                }))
+              }
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select section" />
@@ -381,23 +591,6 @@ export default function AdminTeam() {
                 <SelectItem value="advisory">Advisory</SelectItem>
               </SelectContent>
             </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="display-order">Display Order</Label>
-            <Input
-              id="display-order"
-              type="number"
-              value={formState.displayOrder}
-              onChange={(e) => {
-                const nextValue = Number(e.target.value);
-                setFormState((prev) => ({
-                  ...prev,
-                  displayOrder: Number.isNaN(nextValue) ? 0 : nextValue,
-                }));
-              }}
-            />
-            <p className="text-xs text-muted-foreground">Lower numbers appear first.</p>
           </div>
         </div>
 

@@ -243,7 +243,14 @@ export type Database = {
           featured_image_url: string | null
           id: string
           is_archived: boolean
+          is_project: boolean
           location: string | null
+          project_content: string | null
+          project_display_order: number
+          project_featured_image_url: string | null
+          project_is_published: boolean
+          project_slug: string | null
+          project_summary: string | null
           registration_link: string | null
           start_date: string
           time: string | null
@@ -260,7 +267,14 @@ export type Database = {
           featured_image_url?: string | null
           id?: string
           is_archived?: boolean
+          is_project?: boolean
           location?: string | null
+          project_content?: string | null
+          project_display_order?: number
+          project_featured_image_url?: string | null
+          project_is_published?: boolean
+          project_slug?: string | null
+          project_summary?: string | null
           registration_link?: string | null
           start_date: string
           time?: string | null
@@ -277,7 +291,14 @@ export type Database = {
           featured_image_url?: string | null
           id?: string
           is_archived?: boolean
+          is_project?: boolean
           location?: string | null
+          project_content?: string | null
+          project_display_order?: number
+          project_featured_image_url?: string | null
+          project_is_published?: boolean
+          project_slug?: string | null
+          project_summary?: string | null
           registration_link?: string | null
           start_date?: string
           time?: string | null

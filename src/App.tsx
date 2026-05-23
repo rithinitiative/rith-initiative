@@ -14,7 +14,8 @@ const Index = lazy(() => import("./pages/Index"));
 const About = lazy(() => import("./pages/About"));
 const Events = lazy(() => import("./pages/Events"));
 const Donate = lazy(() => import("./pages/Donate"));
-const Stories = lazy(() => import("./pages/Stories"));
+const Projects = lazy(() => import("./pages/Projects"));
+const ProjectDetail = lazy(() => import("./pages/ProjectDetail"));
 const Shop = lazy(() => import("./pages/Shop"));
 const Contact = lazy(() => import("./pages/Contact"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -33,6 +34,8 @@ const AdminSubscribers = lazy(() => import("./pages/admin/AdminSubscribers"));
 const AdminShop = lazy(() => import("./pages/admin/AdminShop"));
 const AdminShopItemForm = lazy(() => import("./pages/admin/AdminShopItemForm"));
 const AdminTeam = lazy(() => import("./pages/admin/AdminTeam"));
+const AdminProjects = lazy(() => import("./pages/admin/AdminProjects"));
+const AdminProjectForm = lazy(() => import("./pages/admin/AdminProjectForm"));
 
 function RouteLoadingFallback() {
   return (
@@ -62,7 +65,9 @@ const App = () => (
               <Route path="/about" element={<About />} />
               <Route path="/events" element={<Events />} />
               <Route path="/events/share/:id" element={<EventShareRedirect />} />
-              <Route path="/stories" element={<Stories />} />
+              <Route path="/stories" element={<Navigate to="/projects" replace />} />
+              <Route path="/projects" element={<Projects />} />
+              <Route path="/projects/:slug" element={<ProjectDetail />} />
               <Route path="/shop" element={<Shop />} />
               <Route path="/donate" element={<Donate />} />
               <Route path="/contact" element={<Contact />} />
@@ -74,6 +79,8 @@ const App = () => (
                 <Route path="events" element={<AdminEvents />} />
                 <Route path="events/new" element={<AdminEventForm />} />
                 <Route path="events/:id" element={<AdminEventForm />} />
+                <Route path="projects" element={<AdminProjects />} />
+                <Route path="projects/:id" element={<AdminProjectForm />} />
                 <Route path="updates" element={<AdminUpdates />} />
                 <Route path="updates/new" element={<AdminUpdateForm />} />
                 <Route path="updates/:id" element={<AdminUpdateForm />} />

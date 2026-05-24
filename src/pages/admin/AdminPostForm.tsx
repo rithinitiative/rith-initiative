@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -8,21 +8,45 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Save } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { ArrowLeft, GripVertical, Headphones, Plus, Save, Trash2, Upload } from 'lucide-react';
 import { ImageUpload } from '@/components/admin/ImageUpload';
 import { MediaManager, MediaItem } from '@/components/admin/MediaManager';
-import { FormBuilder, FormBuilderHandle, FormData as BlogFormData } from '@/components/admin/FormBuilder';
+import { createProjectSlug } from '@/lib/projects';
 
-interface PostFormData {
+interface ProjectFormData {
   title: string;
   content: string;
   excerpt: string;
   author_name: string;
   category: string;
   featured_image_url: string;
+  project_slug: string;
+  project_display_order: string;
   is_published: boolean;
 }
+
+interface InterviewFormData {
+  id?: string;
+  title: string;
+  interviewee_name: string;
+  interviewee_description: string;
+  portrait_url: string;
+  audio_url: string;
+  transcript: string;
+  display_order: number;
+  is_published: boolean;
+}
+
+const emptyInterview = (displayOrder: number): InterviewFormData => ({
+  title: '',
+  interviewee_name: '',
+  interviewee_description: '',
+  portrait_url: '',
+  audio_url: '',
+  transcript: '',
+  display_order: displayOrder,
+  is_published: true,
+});
 
 export default function AdminPostForm() {
   const { id } = useParams();
@@ -33,56 +57,82 @@ export default function AdminPostForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(isEditing);
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
-  const [blogFormData, setBlogFormData] = useState<BlogFormData | null>(null);
-  const formBuilderRef = useRef<FormBuilderHandle>(null);
+  const [interviews, setInterviews] = useState<InterviewFormData[]>([]);
+  const [deletedInterviewIds, setDeletedInterviewIds] = useState<string[]>([]);
+  const [uploadingInterviewIndex, setUploadingInterviewIndex] = useState<number | null>(null);
+  const audioInputRefs = useRef<Record<number, HTMLInputElement | null>>({});
 
-  const [formData, setFormData] = useState<PostFormData>({
+  const [formData, setFormData] = useState<ProjectFormData>({
     title: '',
     content: '',
     excerpt: '',
     author_name: '',
-    category: '',
+    category: 'Project',
     featured_image_url: '',
+    project_slug: '',
+    project_display_order: '0',
     is_published: false,
   });
 
   useEffect(() => {
-    if (isEditing && id) {
-      const fetchPost = async () => {
-        try {
-          const { data, error } = await supabase
+    if (!isEditing || !id) return;
+
+    const fetchProject = async () => {
+      try {
+        const [{ data: project, error: projectError }, { data: interviewData, error: interviewError }] = await Promise.all([
+          supabase
             .from('blog_posts')
             .select('*')
             .eq('id', id)
-            .maybeSingle();
+            .maybeSingle(),
+          supabase
+            .from('project_interviews')
+            .select('*')
+            .eq('project_id', id)
+            .order('display_order', { ascending: true }),
+        ]);
 
-          if (error) throw error;
+        if (projectError) throw projectError;
+        if (interviewError) throw interviewError;
 
-          if (data) {
-            setFormData({
-              title: data.title || '',
-              content: data.content || '',
-              excerpt: data.excerpt || '',
-              author_name: data.author_name || '',
-              category: data.category || '',
-              featured_image_url: data.featured_image_url || '',
-              is_published: data.is_published || false,
-            });
-          }
-        } catch (error) {
-          console.error('Error fetching post:', error);
-          toast({
-            title: 'Error',
-            description: 'Failed to load post.',
-            variant: 'destructive',
+        if (project) {
+          setFormData({
+            title: project.title || '',
+            content: project.content || '',
+            excerpt: project.excerpt || '',
+            author_name: project.author_name || '',
+            category: project.category || 'Project',
+            featured_image_url: project.featured_image_url || '',
+            project_slug: project.project_slug || '',
+            project_display_order: String(project.project_display_order ?? 0),
+            is_published: project.is_published || false,
           });
-        } finally {
-          setIsFetching(false);
         }
-      };
 
-      fetchPost();
-    }
+        setInterviews((interviewData || []).map((interview) => ({
+          id: interview.id,
+          title: interview.title || '',
+          interviewee_name: interview.interviewee_name || '',
+          interviewee_description: interview.interviewee_description || '',
+          portrait_url: interview.portrait_url || '',
+          audio_url: interview.audio_url || '',
+          transcript: interview.transcript || '',
+          display_order: interview.display_order || 0,
+          is_published: interview.is_published,
+        })));
+      } catch (error) {
+        console.error('Error fetching project:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to load project.',
+          variant: 'destructive',
+        });
+      } finally {
+        setIsFetching(false);
+      }
+    };
+
+    fetchProject();
   }, [id, isEditing, toast]);
 
   const handleChange = (
@@ -96,9 +146,173 @@ export default function AdminPostForm() {
     setMediaItems(media);
   }, []);
 
-  const handleFormChange = useCallback((form: BlogFormData | null) => {
-    setBlogFormData(form);
-  }, []);
+  const updateInterview = (index: number, updates: Partial<InterviewFormData>) => {
+    setInterviews((prev) => prev.map((interview, i) => (
+      i === index ? { ...interview, ...updates } : interview
+    )));
+  };
+
+  const addInterview = () => {
+    setInterviews((prev) => [...prev, emptyInterview(prev.length)]);
+  };
+
+  const removeInterview = (index: number) => {
+    const interview = interviews[index];
+    if (interview.id) {
+      setDeletedInterviewIds((prev) => [...prev, interview.id as string]);
+    }
+    setInterviews((prev) => prev.filter((_, i) => i !== index).map((item, order) => ({
+      ...item,
+      display_order: order,
+    })));
+  };
+
+  const moveInterview = (fromIndex: number, toIndex: number) => {
+    if (fromIndex === toIndex || toIndex < 0 || toIndex >= interviews.length) return;
+
+    setInterviews((prev) => {
+      const next = [...prev];
+      const [moved] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, moved);
+      return next.map((interview, order) => ({ ...interview, display_order: order }));
+    });
+  };
+
+  const handleAudioUpload = async (index: number, file: File) => {
+    if (!file.type.startsWith('audio/')) {
+      toast({
+        title: 'Invalid file type',
+        description: 'Please upload an audio file.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (file.size > 100 * 1024 * 1024) {
+      toast({
+        title: 'File too large',
+        description: 'Please upload an audio file smaller than 100MB.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setUploadingInterviewIndex(index);
+
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+      const filePath = `uploads/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('images')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('images')
+        .getPublicUrl(filePath);
+
+      updateInterview(index, { audio_url: publicUrl });
+      toast({
+        title: 'Audio uploaded',
+        description: 'The interview audio is ready to save.',
+      });
+    } catch (error) {
+      console.error('Error uploading audio:', error);
+      toast({
+        title: 'Upload failed',
+        description: 'Failed to upload the audio file. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setUploadingInterviewIndex(null);
+    }
+  };
+
+  const saveMediaItems = async (projectId: string) => {
+    const { data: existingMedia } = await supabase
+      .from('media')
+      .select('id')
+      .eq('entity_type', 'blog_post')
+      .eq('entity_id', projectId);
+
+    const existingIds = new Set((existingMedia || []).map((media) => media.id));
+    const currentIds = new Set(mediaItems.filter((media) => media.id).map((media) => media.id as string));
+    const toDelete = [...existingIds].filter((mediaId) => !currentIds.has(mediaId));
+
+    if (toDelete.length > 0) {
+      const { error } = await supabase.from('media').delete().in('id', toDelete);
+      if (error) throw error;
+    }
+
+    for (const item of mediaItems) {
+      if (!item.url) continue;
+
+      const mediaData = {
+        entity_type: 'blog_post' as const,
+        entity_id: projectId,
+        media_type: item.media_type,
+        url: item.url,
+        title: item.title || null,
+        description: item.description || null,
+        display_order: item.display_order,
+        created_by: user?.id,
+      };
+
+      if (item.id) {
+        const { error } = await supabase.from('media').update(mediaData).eq('id', item.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('media').insert([mediaData]);
+        if (error) throw error;
+      }
+    }
+  };
+
+  const saveInterviews = async (projectId: string) => {
+    if (deletedInterviewIds.length > 0) {
+      const { error } = await supabase
+        .from('project_interviews')
+        .delete()
+        .in('id', deletedInterviewIds);
+      if (error) throw error;
+    }
+
+    for (const [index, interview] of interviews.entries()) {
+      if (!interview.title.trim() && !interview.audio_url && !interview.transcript.trim()) continue;
+
+      const interviewData = {
+        project_id: projectId,
+        title: interview.title.trim() || `Interview ${index + 1}`,
+        interviewee_name: interview.interviewee_name.trim() || null,
+        interviewee_description: interview.interviewee_description.trim() || null,
+        portrait_url: interview.portrait_url || null,
+        audio_url: interview.audio_url || null,
+        transcript: interview.transcript.trim() || null,
+        display_order: index,
+        is_published: interview.is_published,
+        created_by: user?.id,
+      };
+
+      if (interview.id) {
+        const { error } = await supabase
+          .from('project_interviews')
+          .update(interviewData)
+          .eq('id', interview.id);
+        if (error) throw error;
+      } else {
+        const { data, error } = await supabase
+          .from('project_interviews')
+          .insert([interviewData])
+          .select('id')
+          .single();
+        if (error) throw error;
+        interview.id = data.id;
+      }
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -106,222 +320,71 @@ export default function AdminPostForm() {
     if (!formData.title || !formData.content) {
       toast({
         title: 'Missing required fields',
-        description: 'Please fill in the title and content.',
+        description: 'Please fill in the project title and main description.',
         variant: 'destructive',
       });
       return;
     }
 
-    const currentBlogFormData = formBuilderRef.current?.getFormData() ?? blogFormData;
-
-    // Validate form fields if form exists
-    if (currentBlogFormData && currentBlogFormData.fields.length > 0) {
-      for (const field of currentBlogFormData.fields) {
-        if (field.field_type === 'section') continue;
-
-        if (field.field_type === 'multiple_choice' || field.field_type === 'checkbox') {
-          const validOptions = (field.options || []).filter(opt => opt.trim() !== '');
-          if (validOptions.length === 0) {
-            toast({
-              title: 'Invalid form field',
-              description: `The ${field.field_type === 'checkbox' ? 'checkbox' : 'multiple choice'} field "${field.label || 'Untitled'}" must have at least one option.`,
-              variant: 'destructive',
-            });
-            return;
-          }
-        }
-      }
-    }
-
     setIsLoading(true);
 
     try {
-      const postData = {
+      const slug = createProjectSlug(formData.project_slug || formData.title);
+      const displayOrder = Number.parseInt(formData.project_display_order, 10);
+      const projectData = {
         title: formData.title,
         content: formData.content,
         excerpt: formData.excerpt || null,
         author_name: formData.author_name || null,
-        category: formData.category || null,
+        category: formData.category || 'Project',
         featured_image_url: formData.featured_image_url || null,
+        project_slug: slug,
+        project_display_order: Number.isFinite(displayOrder) ? displayOrder : 0,
         is_published: formData.is_published,
         published_at: formData.is_published ? new Date().toISOString() : null,
         created_by: user?.id,
       };
 
-      let postId = id;
+      let projectId = id;
 
       if (isEditing && id) {
         const { error } = await supabase
           .from('blog_posts')
-          .update(postData)
+          .update(projectData)
           .eq('id', id);
 
         if (error) throw error;
       } else {
         const { data, error } = await supabase
           .from('blog_posts')
-          .insert([postData])
+          .insert([projectData])
           .select('id')
           .single();
 
         if (error) throw error;
-        postId = data.id;
+        projectId = data.id;
       }
 
-      // Save media items
-      if (postId) {
-        // Get existing media to compare
-        const { data: existingMedia } = await supabase
-          .from('media')
-          .select('id')
-          .eq('entity_type', 'blog_post')
-          .eq('entity_id', postId);
-
-        const existingIds = new Set((existingMedia || []).map(m => m.id));
-        const currentIds = new Set(mediaItems.filter(m => m.id).map(m => m.id));
-
-        // Delete removed media
-        const toDelete = [...existingIds].filter(id => !currentIds.has(id));
-        if (toDelete.length > 0) {
-          await supabase.from('media').delete().in('id', toDelete);
-        }
-
-        // Insert/update media items
-        for (const item of mediaItems) {
-          if (!item.url) continue;
-
-          const mediaData = {
-            entity_type: 'blog_post' as const,
-            entity_id: postId,
-            media_type: item.media_type,
-            url: item.url,
-            title: item.title || null,
-            description: item.description || null,
-            display_order: item.display_order,
-            created_by: user?.id,
-          };
-
-          if (item.id) {
-            await supabase
-              .from('media')
-              .update(mediaData)
-              .eq('id', item.id);
-          } else {
-            await supabase.from('media').insert([mediaData]);
-          }
-        }
-
-        // Save form if present
-        if (postId && currentBlogFormData) {
-          // Check if form exists
-          const { data: existingForm, error: existingFormError } = await supabase
-            .from('blog_post_forms')
-            .select('id')
-            .eq('post_id', postId)
-            .maybeSingle();
-
-          if (existingFormError) throw existingFormError;
-
-          let formId = existingForm?.id || currentBlogFormData.id;
-
-          if (formId) {
-            // Update existing form
-            const { error: updateFormError } = await supabase
-              .from('blog_post_forms')
-              .update({
-                title: currentBlogFormData.title,
-                description: currentBlogFormData.description || null,
-                is_active: currentBlogFormData.is_active,
-                updated_at: new Date().toISOString(),
-              })
-              .eq('id', formId);
-
-            if (updateFormError) throw updateFormError;
-          } else {
-            // Create new form
-            const { data: newForm, error: formError } = await supabase
-              .from('blog_post_forms')
-              .insert({
-                post_id: postId,
-                title: currentBlogFormData.title,
-                description: currentBlogFormData.description || null,
-                is_active: currentBlogFormData.is_active,
-                created_by: user?.id,
-              })
-              .select('id')
-              .single();
-
-            if (formError) throw formError;
-            formId = newForm.id;
-          }
-
-          if (formId) {
-            // Get existing fields
-            const { data: existingFields, error: existingFieldsError } = await supabase
-              .from('blog_form_fields')
-              .select('id')
-              .eq('form_id', formId);
-
-            if (existingFieldsError) throw existingFieldsError;
-
-            const existingFieldIds = new Set((existingFields || []).map(f => f.id));
-            const currentFieldIds = new Set(currentBlogFormData.fields.filter(f => f.id).map(f => f.id));
-
-            // Delete removed fields
-            const fieldsToDelete = [...existingFieldIds].filter(id => !currentFieldIds.has(id));
-            if (fieldsToDelete.length > 0) {
-              const { error: deleteFieldsError } = await supabase.from('blog_form_fields').delete().in('id', fieldsToDelete);
-              if (deleteFieldsError) throw deleteFieldsError;
-            }
-
-            // Insert/update fields
-            for (const field of currentBlogFormData.fields) {
-              const validOptions = field.options?.filter(opt => opt.trim() !== '');
-              const fieldData = {
-                form_id: formId,
-                field_type: field.field_type,
-                label: field.label || (field.field_type === 'section' ? 'Untitled section' : 'Untitled question'),
-                description: field.description || null,
-                options: field.field_type === 'multiple_choice' || field.field_type === 'checkbox'
-                  ? JSON.stringify({ choices: validOptions || [], allow_other: field.allow_other === true })
-                  : null,
-                is_required: field.field_type === 'section' ? false : field.is_required,
-                display_order: field.display_order,
-              };
-
-              if (field.id) {
-                const { error: updateFieldError } = await supabase
-                  .from('blog_form_fields')
-                  .update(fieldData)
-                  .eq('id', field.id);
-                if (updateFieldError) throw updateFieldError;
-              } else {
-                const { error: insertFieldError } = await supabase.from('blog_form_fields').insert([fieldData]);
-                if (insertFieldError) throw insertFieldError;
-              }
-            }
-          }
-        } else if (postId && !currentBlogFormData) {
-          // Delete form if it was removed
-          const { error: deleteFormError } = await supabase
-            .from('blog_post_forms')
-            .delete()
-            .eq('post_id', postId);
-          if (deleteFormError) throw deleteFormError;
-        }
+      if (projectId) {
+        await saveMediaItems(projectId);
+        await saveInterviews(projectId);
       }
 
       toast({
-        title: isEditing ? 'Post updated' : 'Post created',
-        description: `The post has been ${isEditing ? 'updated' : 'created'} successfully.`,
+        title: isEditing ? 'Project updated' : 'Project created',
+        description: `The project has been ${isEditing ? 'updated' : 'created'} successfully.`,
       });
 
-      navigate('/admin/posts');
-    } catch (error) {
-      console.error('Error saving post:', error);
+      navigate('/admin/projects');
+    } catch (error: unknown) {
+      console.error('Error saving project:', error);
+      const message = error && typeof error === 'object' && 'code' in error && error.code === '23505'
+        ? 'That project URL is already in use. Please choose a different URL slug.'
+        : 'Failed to save project. Please try again.';
+
       toast({
         title: 'Error',
-        description: 'Failed to save post. Please try again.',
+        description: message,
         variant: 'destructive',
       });
     } finally {
@@ -341,75 +404,102 @@ export default function AdminPostForm() {
     <div className="space-y-6">
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" asChild>
-          <Link to="/admin/posts">
+          <Link to="/admin/projects">
             <ArrowLeft size={18} />
           </Link>
         </Button>
         <div>
           <h1 className="font-heading text-2xl font-semibold text-foreground">
-            {isEditing ? 'Edit Post' : 'Create Post'}
+            {isEditing ? 'Edit Project' : 'Create Project'}
           </h1>
           <p className="text-muted-foreground text-sm">
-            {isEditing ? 'Update post details' : 'Write a new blog post'}
+            Build a long-term project page with optional interviews, audio, and transcripts.
           </p>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6 max-w-2xl">
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="title">Title *</Label>
-            <Input
-              id="title"
-              name="title"
-              value={formData.title}
-              onChange={handleChange}
-              placeholder="Post title"
-              required
-            />
+      <form onSubmit={handleSubmit} className="space-y-8 max-w-4xl">
+        <section className="space-y-4 rounded-lg border border-border/50 bg-card p-5 shadow-soft">
+          <div className="grid gap-4 sm:grid-cols-[1fr_12rem]">
+            <div className="space-y-2">
+              <Label htmlFor="title">Project Title *</Label>
+              <Input
+                id="title"
+                name="title"
+                value={formData.title}
+                onChange={handleChange}
+                placeholder="Threads & Bridges: Oral History Project"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="project_display_order">Menu Order</Label>
+              <Input
+                id="project_display_order"
+                name="project_display_order"
+                type="number"
+                value={formData.project_display_order}
+                onChange={handleChange}
+                min="0"
+              />
+            </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="excerpt">Excerpt</Label>
+            <Label htmlFor="project_slug">Project URL</Label>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <span className="text-sm text-muted-foreground">/projects/</span>
+              <Input
+                id="project_slug"
+                name="project_slug"
+                value={formData.project_slug}
+                onChange={(e) => setFormData((prev) => ({ ...prev, project_slug: createProjectSlug(e.target.value) }))}
+                onBlur={() => setFormData((prev) => ({ ...prev, project_slug: createProjectSlug(prev.project_slug || prev.title) }))}
+                placeholder="threads-bridges-oral-history-project"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="excerpt">Short Description</Label>
             <Textarea
               id="excerpt"
               name="excerpt"
               value={formData.excerpt}
               onChange={handleChange}
-              placeholder="A brief summary of the post..."
-              rows={2}
+              placeholder="A brief description shown on the Projects page and under the project title."
+              rows={3}
             />
           </div>
 
           <ImageUpload
             value={formData.featured_image_url}
             onChange={(url) => setFormData((prev) => ({ ...prev, featured_image_url: url }))}
-            label="Blog Post Image"
+            label="Project Cover Image"
           />
 
-
           <div className="space-y-2">
-            <Label htmlFor="content">Content *</Label>
+            <Label htmlFor="content">Main Project Description *</Label>
             <Textarea
               id="content"
               name="content"
               value={formData.content}
               onChange={handleChange}
-              placeholder="Write your post content here..."
+              placeholder="Write the full project description here..."
               rows={12}
               required
             />
           </div>
 
-          <div className="grid sm:grid-cols-2 gap-4">
+          <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="author_name">Author Name</Label>
+              <Label htmlFor="author_name">Credit / Author</Label>
               <Input
                 id="author_name"
                 name="author_name"
                 value={formData.author_name}
                 onChange={handleChange}
-                placeholder="Author name"
+                placeholder="Optional"
               />
             </div>
             <div className="space-y-2">
@@ -419,12 +509,12 @@ export default function AdminPostForm() {
                 name="category"
                 value={formData.category}
                 onChange={handleChange}
-                placeholder="e.g., News, Events, Community"
+                placeholder="Project"
               />
             </div>
           </div>
 
-          <div className="flex items-center gap-3 p-4 rounded-lg bg-secondary/30">
+          <div className="flex items-center gap-3 rounded-lg bg-secondary/30 p-4">
             <Switch
               id="is_published"
               checked={formData.is_published}
@@ -434,34 +524,180 @@ export default function AdminPostForm() {
             />
             <div>
               <Label htmlFor="is_published" className="cursor-pointer">
-                Publish immediately
+                Publish on website
               </Label>
               <p className="text-xs text-muted-foreground">
                 {formData.is_published
-                  ? 'This post will be visible on the website.'
-                  : 'This post will be saved as a draft.'}
+                  ? 'This project will appear under Projects.'
+                  : 'This project will be saved as a draft.'}
               </p>
             </div>
           </div>
+        </section>
 
-          {/* Additional Media Section */}
-          <div className="pt-4 border-t border-border">
-            <MediaManager
-              entityType="blog_post"
-              entityId={id}
-              onMediaChange={handleMediaChange}
-            />
+        <section className="rounded-lg border border-border/50 bg-card p-5 shadow-soft">
+          <MediaManager
+            entityType="blog_post"
+            entityId={id}
+            onMediaChange={handleMediaChange}
+          />
+        </section>
+
+        <section className="space-y-4 rounded-lg border border-border/50 bg-card p-5 shadow-soft">
+          <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+            <div>
+              <h2 className="font-heading text-xl font-semibold text-foreground">Interviews</h2>
+              <p className="text-sm text-muted-foreground">
+                Add audio, transcript, portrait, and interviewee details only when this project needs them.
+              </p>
+            </div>
+            <Button type="button" variant="outline" onClick={addInterview}>
+              <Plus size={16} />
+              Add Interview
+            </Button>
           </div>
 
-          {/* Interactive Form Section */}
-          <div className="pt-4 border-t border-border">
-            <FormBuilder
-              ref={formBuilderRef}
-              postId={id}
-              onFormChange={handleFormChange}
-            />
-          </div>
-        </div>
+          {interviews.length === 0 ? (
+            <div className="rounded-lg border-2 border-dashed border-border p-8 text-center">
+              <Headphones className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">No interviews added yet.</p>
+            </div>
+          ) : (
+            <div className="space-y-5">
+              {interviews.map((interview, index) => (
+                <div key={interview.id || index} className="space-y-4 rounded-lg border border-border p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                      <GripVertical size={16} />
+                      Interview #{index + 1}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => moveInterview(index, index - 1)}
+                        disabled={index === 0}
+                      >
+                        Up
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => moveInterview(index, index + 1)}
+                        disabled={index === interviews.length - 1}
+                      >
+                        Down
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="text-destructive hover:text-destructive"
+                        onClick={() => removeInterview(index)}
+                      >
+                        <Trash2 size={16} />
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label>Interview Title</Label>
+                      <Input
+                        value={interview.title}
+                        onChange={(e) => updateInterview(index, { title: e.target.value })}
+                        placeholder="Full Oral History Interview"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Interviewee Name</Label>
+                      <Input
+                        value={interview.interviewee_name}
+                        onChange={(e) => updateInterview(index, { interviewee_name: e.target.value })}
+                        placeholder="Person being interviewed"
+                      />
+                    </div>
+                  </div>
+
+                  <ImageUpload
+                    value={interview.portrait_url}
+                    onChange={(url) => updateInterview(index, { portrait_url: url })}
+                    label="Interviewee Photo"
+                  />
+
+                  <div className="space-y-2">
+                    <Label>Interviewee Description</Label>
+                    <Textarea
+                      value={interview.interviewee_description}
+                      onChange={(e) => updateInterview(index, { interviewee_description: e.target.value })}
+                      placeholder="Short bio or context about the person being interviewed."
+                      rows={3}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Audio File</Label>
+                    {interview.audio_url ? (
+                      <div className="rounded-lg border border-border bg-secondary/30 p-4">
+                        <audio src={interview.audio_url} controls className="w-full" />
+                        <div className="mt-3 flex gap-2">
+                          <Button type="button" variant="outline" size="sm" onClick={() => audioInputRefs.current[index]?.click()}>
+                            Replace Audio
+                          </Button>
+                          <Button type="button" variant="ghost" size="sm" onClick={() => updateInterview(index, { audio_url: '' })}>
+                            Remove
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => audioInputRefs.current[index]?.click()}
+                        className="flex w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border p-6 text-sm text-muted-foreground transition-colors hover:border-primary/50 hover:bg-secondary/30"
+                      >
+                        <Upload size={20} />
+                        {uploadingInterviewIndex === index ? 'Uploading audio...' : 'Upload audio file'}
+                      </button>
+                    )}
+                    <input
+                      ref={(el) => { audioInputRefs.current[index] = el; }}
+                      type="file"
+                      accept="audio/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleAudioUpload(index, file);
+                        e.target.value = '';
+                      }}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Transcript</Label>
+                    <Textarea
+                      value={interview.transcript}
+                      onChange={(e) => updateInterview(index, { transcript: e.target.value })}
+                      placeholder="Paste the interview transcript here. Paragraph breaks will be preserved."
+                      rows={8}
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-3 rounded-lg bg-secondary/30 p-3">
+                    <Switch
+                      checked={interview.is_published}
+                      onCheckedChange={(checked) => updateInterview(index, { is_published: checked })}
+                    />
+                    <span className="text-sm text-muted-foreground">
+                      {interview.is_published ? 'Show this interview on the website' : 'Keep this interview hidden'}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
 
         <div className="flex gap-4">
           <Button type="submit" variant="hero" disabled={isLoading}>
@@ -470,12 +706,12 @@ export default function AdminPostForm() {
             ) : (
               <>
                 <Save size={18} />
-                {isEditing ? 'Update Post' : 'Create Post'}
+                {isEditing ? 'Update Project' : 'Create Project'}
               </>
             )}
           </Button>
           <Button type="button" variant="outline" asChild>
-            <Link to="/admin/posts">Cancel</Link>
+            <Link to="/admin/projects">Cancel</Link>
           </Button>
         </div>
       </form>

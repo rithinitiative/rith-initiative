@@ -2,9 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Calendar, MapPin, Edit, Archive, Trash2, RotateCcw, ArrowUp, ArrowDown, FolderKanban } from 'lucide-react';
+import { Plus, Calendar, MapPin, Edit, Archive, Trash2, RotateCcw, ArrowUp, ArrowDown } from 'lucide-react';
 import {
   EVENT_ORDER_ENTITY_ID,
   EVENT_ORDER_ENTITY_TYPE,
@@ -38,9 +37,6 @@ interface Event {
   location: string | null;
   category: string | null;
   is_archived: boolean;
-  is_project?: boolean;
-  project_slug?: string | null;
-  project_is_published?: boolean;
   created_at: string;
 }
 
@@ -141,36 +137,6 @@ export default function AdminEvents() {
       toast({
         title: 'Error',
         description: 'Failed to delete event.',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const handleToggleProject = async (event: Event, isProject: boolean) => {
-    try {
-      const { error } = await supabase
-        .from('events')
-        .update({
-          is_project: isProject,
-          project_is_published: isProject ? (event.project_is_published ?? true) : event.project_is_published,
-        })
-        .eq('id', event.id);
-
-      if (error) throw error;
-
-      toast({
-        title: isProject ? 'Project page enabled' : 'Project page hidden',
-        description: isProject
-          ? `${event.title} now appears in the Projects admin tab.`
-          : `${event.title} was removed from Projects.`,
-      });
-
-      fetchEvents();
-    } catch (error) {
-      console.error('Error updating project status:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to update project status.',
         variant: 'destructive',
       });
     }
@@ -288,11 +254,6 @@ export default function AdminEvents() {
                 Archived
               </span>
             )}
-            {event.is_project && (
-              <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-medium">
-                Project
-              </span>
-            )}
           </div>
           <h3 className="font-heading text-lg font-semibold text-foreground mb-2 truncate">
             {event.title}
@@ -315,32 +276,6 @@ export default function AdminEvents() {
         </div>
 
         <div className="flex items-center gap-2 flex-shrink-0">
-          <label className="flex items-center gap-2 rounded-md border border-border/70 bg-background/80 px-3 py-2 text-xs font-medium text-muted-foreground">
-            <Checkbox
-              checked={event.is_project === true}
-              onCheckedChange={(checked) => handleToggleProject(event, checked === true)}
-              aria-label={`Show ${event.title} under Projects`}
-            />
-            Project
-          </label>
-
-          {event.is_project ? (
-            <Button variant="ghost" size="icon" asChild title="Edit project page">
-              <Link to={`/admin/projects/${event.id}`}>
-                <FolderKanban size={16} />
-              </Link>
-            </Button>
-          ) : (
-            <Button
-              variant="ghost"
-              size="icon"
-              title="Create project page"
-              onClick={() => handleToggleProject(event, true)}
-            >
-              <FolderKanban size={16} />
-            </Button>
-          )}
-
           {canReorder && orderedEvents.length > 1 && (
             <div className="flex flex-col rounded-md border border-border/70 bg-background/80 overflow-hidden">
               <Button

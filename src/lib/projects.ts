@@ -3,7 +3,8 @@ export interface ProjectNavItem {
   title: string;
   project_slug: string | null;
   project_display_order: number | null;
-  start_date: string;
+  published_at?: string | null;
+  created_at?: string | null;
 }
 
 export const createProjectSlug = (value: string) => {
@@ -25,5 +26,7 @@ export const sortProjects = <T extends ProjectNavItem>(projects: T[]) =>
     const orderDiff = (a.project_display_order ?? 0) - (b.project_display_order ?? 0);
     if (orderDiff !== 0) return orderDiff;
 
-    return new Date(a.start_date).getTime() - new Date(b.start_date).getTime();
+    const dateA = a.published_at || a.created_at || "";
+    const dateB = b.published_at || b.created_at || "";
+    return new Date(dateB).getTime() - new Date(dateA).getTime();
   });

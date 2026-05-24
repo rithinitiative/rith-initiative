@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Calendar, Bell, Plus, ArrowRight } from 'lucide-react';
+import { Calendar, Bell, Plus, ArrowRight, FolderKanban } from 'lucide-react';
 import { splitEventsByTimeline } from '@/lib/events';
 
 export default function AdminHome() {
@@ -12,6 +12,8 @@ export default function AdminHome() {
     pastEvents: 0,
     publishedUpdates: 0,
     draftUpdates: 0,
+    publishedProjects: 0,
+    draftProjects: 0,
   });
   const [isLoading, setIsLoading] = useState(true);
 
@@ -40,11 +42,25 @@ export default function AdminHome() {
           .eq('is_published', false)
           .eq('is_archived', false);
 
+        const { count: publishedProjects } = await supabase
+          .from('blog_posts')
+          .select('*', { count: 'exact', head: true })
+          .eq('is_published', true)
+          .eq('is_archived', false);
+
+        const { count: draftProjects } = await supabase
+          .from('blog_posts')
+          .select('*', { count: 'exact', head: true })
+          .eq('is_published', false)
+          .eq('is_archived', false);
+
         setStats({
           upcomingEvents: upcomingEvents.length,
           pastEvents: pastEvents.length,
           publishedUpdates: publishedUpdates ?? 0,
           draftUpdates: draftUpdates ?? 0,
+          publishedProjects: publishedProjects ?? 0,
+          draftProjects: draftProjects ?? 0,
         });
       } catch (error) {
         console.error('Error fetching stats:', error);
@@ -71,12 +87,12 @@ export default function AdminHome() {
           Welcome to Admin Dashboard
         </h1>
         <p className="text-muted-foreground">
-          Manage your events and blog posts from here.
+          Manage events, projects, updates, and website content from here.
         </p>
       </div>
 
       {/* Quick Actions */}
-      <div className="grid sm:grid-cols-2 gap-4">
+      <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
         <Card className="border-border/50 shadow-soft">
           <CardHeader className="pb-2">
             <CardTitle className="text-lg flex items-center gap-2">
@@ -104,6 +120,41 @@ export default function AdminHome() {
               </Button>
               <Button variant="outline" size="sm" asChild className="flex-1">
                 <Link to="/admin/events">
+                  View All
+                  <ArrowRight size={16} />
+                </Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border/50 shadow-soft">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <FolderKanban className="h-5 w-5 text-primary" />
+              Projects
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <p className="text-2xl font-bold text-foreground">{stats.publishedProjects}</p>
+                <p className="text-sm text-muted-foreground">Published</p>
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-foreground">{stats.draftProjects}</p>
+                <p className="text-sm text-muted-foreground">Drafts</p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="hero" size="sm" asChild className="flex-1">
+                <Link to="/admin/projects/new">
+                  <Plus size={16} />
+                  Add Project
+                </Link>
+              </Button>
+              <Button variant="outline" size="sm" asChild className="flex-1">
+                <Link to="/admin/projects">
                   View All
                   <ArrowRight size={16} />
                 </Link>

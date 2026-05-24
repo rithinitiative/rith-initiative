@@ -121,6 +121,14 @@ export function MediaLightbox({ media, initialIndex, open, onOpenChange }: Media
             className="max-w-full max-h-full rounded-lg"
           />
         )}
+        {currentMedia.media_type === 'audio' && (
+          <div className="w-full max-w-2xl rounded-lg bg-white p-6">
+            <p className="mb-4 text-center font-medium text-gray-900">
+              {currentMedia.title || 'Audio'}
+            </p>
+            <audio src={currentMedia.url} controls autoPlay className="w-full" />
+          </div>
+        )}
       </div>
 
       {/* Counter */}

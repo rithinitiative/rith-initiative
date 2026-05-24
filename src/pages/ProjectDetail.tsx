@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, Calendar, Image as ImageIcon, MapPin } from "lucide-react";
+import { ArrowLeft, FileText, Headphones, Image as ImageIcon, UserRound } from "lucide-react";
 import { Layout } from "@/components/layout/Layout";
 import { PageMeta } from "@/components/shared/PageMeta";
 import { SectionDivider } from "@/components/shared/SectionDivider";
@@ -8,22 +8,27 @@ import { ScrollReveal } from "@/components/shared/ScrollReveal";
 import { MediaLightbox } from "@/components/shared/MediaLightbox";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { SITE_URL, createBreadcrumbSchema, createWebPageSchema } from "@/lib/seo";
-import { formatEventDateRange } from "@/lib/events";
+import { createBreadcrumbSchema, createWebPageSchema } from "@/lib/seo";
 import { sanitizeRichText } from "@/lib/richText";
 
-interface ProjectEvent {
+interface Project {
   id: string;
   title: string;
-  description: string | null;
-  start_date: string;
-  end_date: string | null;
-  location: string | null;
-  project_slug: string | null;
-  project_summary: string | null;
-  project_content: string | null;
-  project_featured_image_url: string | null;
+  content: string;
+  excerpt: string | null;
   featured_image_url: string | null;
+  project_slug: string | null;
+}
+
+interface ProjectInterview {
+  id: string;
+  title: string;
+  interviewee_name: string | null;
+  interviewee_description: string | null;
+  portrait_url: string | null;
+  audio_url: string | null;
+  transcript: string | null;
+  display_order: number;
 }
 
 interface MediaItem {
@@ -34,9 +39,87 @@ interface MediaItem {
   description: string | null;
 }
 
+const formatTranscript = (value: string) =>
+  value
+    .split(/\n{2,}/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean);
+
+function InterviewCard({ interview }: { interview: ProjectInterview }) {
+  const hasDetails = Boolean(interview.portrait_url || interview.interviewee_description);
+  const transcriptParagraphs = interview.transcript ? formatTranscript(interview.transcript) : [];
+
+  return (
+    <article className="rounded-lg border border-border/50 bg-card shadow-soft">
+      <div className={`grid gap-0 ${hasDetails ? "lg:grid-cols-[0.85fr_1.15fr]" : ""}`}>
+        {hasDetails && (
+          <div className="border-b border-border/50 p-5 lg:border-b-0 lg:border-r">
+            {interview.portrait_url ? (
+              <img
+                src={interview.portrait_url}
+                alt={interview.interviewee_name || interview.title}
+                className="aspect-[4/3] w-full rounded-md object-cover"
+              />
+            ) : (
+              <div className="flex aspect-[4/3] items-center justify-center rounded-md bg-secondary">
+                <UserRound className="h-10 w-10 text-muted-foreground" />
+              </div>
+            )}
+            {interview.interviewee_description && (
+              <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
+                {interview.interviewee_description}
+              </p>
+            )}
+          </div>
+        )}
+
+        <div className="p-5 sm:p-6">
+          <div className="mb-4">
+            <h3 className="font-heading text-2xl font-semibold text-foreground">{interview.title}</h3>
+            {interview.interviewee_name && (
+              <p className="mt-1 text-sm font-medium text-primary">{interview.interviewee_name}</p>
+            )}
+          </div>
+
+          {interview.audio_url && (
+            <div className="mb-5 rounded-md border border-border/50 bg-secondary/30 p-4">
+              <p className="mb-3 flex items-center gap-2 text-sm font-medium text-foreground">
+                <Headphones size={16} />
+                Audio Interview
+              </p>
+              <audio src={interview.audio_url} controls className="w-full" />
+            </div>
+          )}
+
+          {transcriptParagraphs.length > 0 && (
+            <details className="group rounded-md border border-border/50 bg-background">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 font-medium text-foreground">
+                <span className="flex items-center gap-2">
+                  <FileText size={16} />
+                  Transcript
+                </span>
+                <span className="text-sm text-muted-foreground group-open:hidden">Open</span>
+                <span className="hidden text-sm text-muted-foreground group-open:inline">Close</span>
+              </summary>
+              <div className="max-h-[26rem] overflow-y-auto border-t border-border/50 px-4 py-4">
+                {transcriptParagraphs.map((paragraph, index) => (
+                  <p key={index} className="mb-4 text-sm leading-7 text-muted-foreground last:mb-0">
+                    {paragraph}
+                  </p>
+                ))}
+              </div>
+            </details>
+          )}
+        </div>
+      </div>
+    </article>
+  );
+}
+
 export default function ProjectDetail() {
   const { slug } = useParams();
-  const [project, setProject] = useState<ProjectEvent | null>(null);
+  const [project, setProject] = useState<Project | null>(null);
+  const [interviews, setInterviews] = useState<ProjectInterview[]>([]);
   const [media, setMedia] = useState<MediaItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -48,28 +131,34 @@ export default function ProjectDetail() {
 
       try {
         const { data, error } = await supabase
-          .from("events")
-          .select("id, title, description, start_date, end_date, location, project_slug, project_summary, project_content, project_featured_image_url, featured_image_url")
-          .eq("is_project", true)
-          .eq("project_is_published", true)
+          .from("blog_posts")
+          .select("id, title, content, excerpt, featured_image_url, project_slug")
+          .eq("is_published", true)
           .eq("is_archived", false)
           .or(`project_slug.eq.${slug},id.eq.${slug}`)
           .maybeSingle();
 
         if (error) throw error;
-        setProject((data || null) as ProjectEvent | null);
+        setProject((data || null) as Project | null);
 
         if (data?.id) {
-          const { data: mediaData, error: mediaError } = await supabase
-            .from("media")
-            .select("id, url, media_type, title, description")
-            .eq("entity_type", "event")
-            .eq("entity_id", data.id)
-            .order("display_order", { ascending: true });
+          const [{ data: interviewData }, { data: mediaData }] = await Promise.all([
+            supabase
+              .from("project_interviews")
+              .select("id, title, interviewee_name, interviewee_description, portrait_url, audio_url, transcript, display_order")
+              .eq("project_id", data.id)
+              .eq("is_published", true)
+              .order("display_order", { ascending: true }),
+            supabase
+              .from("media")
+              .select("id, url, media_type, title, description")
+              .eq("entity_type", "blog_post")
+              .eq("entity_id", data.id)
+              .order("display_order", { ascending: true }),
+          ]);
 
-          if (!mediaError) {
-            setMedia((mediaData || []) as MediaItem[]);
-          }
+          setInterviews((interviewData || []) as ProjectInterview[]);
+          setMedia((mediaData || []) as MediaItem[]);
         }
       } catch (error) {
         console.error("Error fetching project:", error);
@@ -107,10 +196,8 @@ export default function ProjectDetail() {
     );
   }
 
-  const imageUrl = project.project_featured_image_url || project.featured_image_url;
-  const content = project.project_content || project.description || "";
-  const pageDescription = project.project_summary || `Explore ${project.title}, a long-term project from The Rith Initiative.`;
   const projectPath = `/projects/${project.project_slug || project.id}`;
+  const pageDescription = project.excerpt || `Explore ${project.title}, a long-term project from The Rith Initiative.`;
   const projectPageSchema = createWebPageSchema({
     title: `${project.title} | The Rith Initiative`,
     description: pageDescription,
@@ -130,20 +217,20 @@ export default function ProjectDetail() {
         description={pageDescription}
         keywords={`${project.title}, Rith Initiative project, Indian American oral history, cultural interviews`}
         path={projectPath}
-        ogImage={imageUrl || undefined}
+        ogImage={project.featured_image_url || undefined}
         jsonLd={[projectPageSchema, breadcrumbSchema]}
       />
 
-      <section className="relative min-h-[70vh] overflow-hidden bg-foreground text-background">
-        {imageUrl && (
+      <section className="relative overflow-hidden bg-foreground text-background">
+        {project.featured_image_url && (
           <img
-            src={imageUrl}
+            src={project.featured_image_url}
             alt={project.title}
-            className="absolute inset-0 h-full w-full object-cover opacity-45"
+            className="absolute inset-0 h-full w-full object-cover opacity-40"
           />
         )}
-        <div className="absolute inset-0 bg-foreground/60" />
-        <div className="container-wide relative z-10 flex min-h-[70vh] items-end pb-14 pt-32">
+        <div className="absolute inset-0 bg-foreground/65" />
+        <div className="container-wide relative z-10 flex min-h-[62vh] items-end pb-14 pt-32">
           <ScrollReveal variant="fade-up" className="max-w-4xl">
             <Button variant="ghost" className="mb-8 text-background hover:bg-background/10 hover:text-background" asChild>
               <Link to="/projects">
@@ -151,21 +238,13 @@ export default function ProjectDetail() {
                 Projects
               </Link>
             </Button>
-            <p className="mb-4 flex flex-wrap items-center gap-4 text-sm text-background/75">
-              <span className="flex items-center gap-2">
-                <Calendar size={16} />
-                {formatEventDateRange(project)}
-              </span>
-              {project.location && (
-                <span className="flex items-center gap-2">
-                  <MapPin size={16} />
-                  {project.location}
-                </span>
-              )}
+            <p className="mb-4 flex items-center gap-2 text-sm font-medium uppercase tracking-[0.2em] text-background/70">
+              <Headphones size={16} />
+              Project Collection
             </p>
             <h1 className="font-heading text-4xl font-semibold md:text-5xl lg:text-6xl">{project.title}</h1>
-            {project.project_summary && (
-              <p className="mt-6 max-w-3xl text-lg leading-relaxed text-background/80">{project.project_summary}</p>
+            {project.excerpt && (
+              <p className="mt-6 max-w-3xl text-lg leading-relaxed text-background/80">{project.excerpt}</p>
             )}
           </ScrollReveal>
         </div>
@@ -175,21 +254,42 @@ export default function ProjectDetail() {
 
       <section className="section-padding">
         <div className="container-narrow">
-          {content && (
-            <ScrollReveal variant="fade-up">
-              <div
-                className="text-muted-foreground leading-relaxed [&_a]:font-medium [&_a]:text-primary [&_a]:underline [&_a]:underline-offset-2 [&_h2]:font-heading [&_h2]:text-2xl [&_h2]:font-semibold [&_h2]:text-foreground [&_ol]:my-4 [&_ol]:list-decimal [&_ol]:space-y-2 [&_ol]:pl-6 [&_p]:mb-5 [&_ul]:my-4 [&_ul]:list-disc [&_ul]:space-y-2 [&_ul]:pl-6"
-                dangerouslySetInnerHTML={{ __html: sanitizeRichText(content) }}
-              />
-            </ScrollReveal>
-          )}
+          <ScrollReveal variant="fade-up">
+            <div
+              className="text-muted-foreground leading-relaxed [&_a]:font-medium [&_a]:text-primary [&_a]:underline [&_a]:underline-offset-2 [&_h2]:font-heading [&_h2]:text-2xl [&_h2]:font-semibold [&_h2]:text-foreground [&_ol]:my-4 [&_ol]:list-decimal [&_ol]:space-y-2 [&_ol]:pl-6 [&_p]:mb-5 [&_ul]:my-4 [&_ul]:list-disc [&_ul]:space-y-2 [&_ul]:pl-6"
+              dangerouslySetInnerHTML={{ __html: sanitizeRichText(project.content) }}
+            />
+          </ScrollReveal>
         </div>
       </section>
+
+      {interviews.length > 0 && (
+        <>
+          <SectionDivider />
+          <section className="section-padding bg-secondary/20">
+            <div className="container-wide">
+              <ScrollReveal variant="fade-up">
+                <div className="mb-8 max-w-3xl">
+                  <h2 className="font-heading text-3xl font-semibold text-foreground">Interviews</h2>
+                  <p className="mt-2 text-muted-foreground">
+                    Listen to audio stories and read transcripts from this project collection.
+                  </p>
+                </div>
+              </ScrollReveal>
+              <div className="space-y-6">
+                {interviews.map((interview) => (
+                  <InterviewCard key={interview.id} interview={interview} />
+                ))}
+              </div>
+            </div>
+          </section>
+        </>
+      )}
 
       {media.length > 0 && (
         <>
           <SectionDivider />
-          <section className="section-padding bg-secondary/20">
+          <section className="section-padding">
             <div className="container-wide">
               <ScrollReveal variant="fade-up">
                 <div className="mb-8 text-center">
@@ -208,11 +308,18 @@ export default function ProjectDetail() {
                     className="group overflow-hidden rounded-lg border border-border/50 bg-card text-left shadow-soft transition-all hover:shadow-elevated"
                   >
                     {item.media_type === "video" ? (
-                      <div className="flex aspect-video items-center justify-center bg-foreground text-background">
+                      <video src={item.url} className="aspect-video w-full object-cover" />
+                    ) : item.media_type === "audio" ? (
+                      <div className="flex aspect-video flex-col items-center justify-center gap-3 bg-secondary text-foreground">
+                        <Headphones className="h-8 w-8 opacity-70" />
+                        <span className="text-sm font-medium">Audio</span>
+                      </div>
+                    ) : item.media_type === "image" ? (
+                      <img src={item.url} alt={item.title || project.title} className="aspect-video w-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                    ) : (
+                      <div className="flex aspect-video items-center justify-center bg-secondary text-foreground">
                         <ImageIcon className="h-8 w-8 opacity-70" />
                       </div>
-                    ) : (
-                      <img src={item.url} alt={item.title || project.title} className="aspect-video w-full object-cover transition-transform duration-300 group-hover:scale-105" />
                     )}
                     {(item.title || item.description) && (
                       <div className="p-4">

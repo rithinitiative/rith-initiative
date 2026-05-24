@@ -3,10 +3,10 @@ import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, FileText, Edit, Archive, Trash2, RotateCcw, Eye, EyeOff, Globe, GlobeLock } from 'lucide-react';
-import { FormSubmissionsViewer } from '@/components/admin/FormSubmissionsViewer';
+import { Plus, FileText, Edit, Archive, Trash2, RotateCcw, Eye, Globe, GlobeLock } from 'lucide-react';
 import { BlogDetailModal } from '@/components/shared/BlogDetailModal';
 import { format } from 'date-fns';
+import { getProjectPath } from '@/lib/projects';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,6 +30,8 @@ interface BlogPost {
   featured_image_url: string | null;
   is_published: boolean;
   is_archived: boolean;
+  project_slug: string | null;
+  project_display_order: number | null;
   published_at: string | null;
   created_at: string;
 }
@@ -54,7 +56,7 @@ export default function AdminPosts() {
       console.error('Error fetching posts:', error);
       toast({
         title: 'Error',
-        description: 'Failed to load blog posts.',
+        description: 'Failed to load projects.',
         variant: 'destructive',
       });
     } finally {
@@ -79,10 +81,10 @@ export default function AdminPosts() {
       if (error) throw error;
 
       toast({
-        title: publish ? 'Post published' : 'Post unpublished',
+        title: publish ? 'Project published' : 'Project unpublished',
         description: publish
-          ? 'The post is now visible on the website.'
-          : 'The post is now hidden from the website.',
+          ? 'The project is now visible on the website.'
+          : 'The project is now hidden from the website.',
       });
 
       fetchPosts();
@@ -90,7 +92,7 @@ export default function AdminPosts() {
       console.error('Error updating post:', error);
       toast({
         title: 'Error',
-        description: 'Failed to update post.',
+        description: 'Failed to update project.',
         variant: 'destructive',
       });
     }
@@ -106,10 +108,10 @@ export default function AdminPosts() {
       if (error) throw error;
 
       toast({
-        title: archive ? 'Post archived' : 'Post restored',
+        title: archive ? 'Project archived' : 'Project restored',
         description: archive
-          ? 'The post has been archived.'
-          : 'The post has been restored.',
+          ? 'The project has been archived.'
+          : 'The project has been restored.',
       });
 
       fetchPosts();
@@ -117,7 +119,7 @@ export default function AdminPosts() {
       console.error('Error updating post:', error);
       toast({
         title: 'Error',
-        description: 'Failed to update post.',
+        description: 'Failed to update project.',
         variant: 'destructive',
       });
     }
@@ -130,8 +132,8 @@ export default function AdminPosts() {
       if (error) throw error;
 
       toast({
-        title: 'Post deleted',
-        description: 'The post has been permanently deleted.',
+        title: 'Project deleted',
+        description: 'The project has been permanently deleted.',
       });
 
       fetchPosts();
@@ -139,7 +141,7 @@ export default function AdminPosts() {
       console.error('Error deleting post:', error);
       toast({
         title: 'Error',
-        description: 'Failed to delete post.',
+        description: 'Failed to delete project.',
         variant: 'destructive',
       });
     }
@@ -201,22 +203,28 @@ export default function AdminPosts() {
         </div>
 
         <div className="flex items-center gap-2 flex-shrink-0">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => {
-              setPreviewPost(post);
-              setIsPreviewOpen(true);
-            }}
-            title="Preview"
-          >
-            <Eye size={16} />
-          </Button>
-          
-          <FormSubmissionsViewer postId={post.id} postTitle={post.title} />
+          {post.is_published && !post.is_archived ? (
+            <Button variant="ghost" size="icon" asChild title="View on website">
+              <Link to={getProjectPath(post)}>
+                <Eye size={16} />
+              </Link>
+            </Button>
+          ) : (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => {
+                setPreviewPost(post);
+                setIsPreviewOpen(true);
+              }}
+              title="Preview draft"
+            >
+              <Eye size={16} />
+            </Button>
+          )}
           
           <Button variant="ghost" size="icon" asChild title="Edit">
-            <Link to={`/admin/posts/${post.id}`}>
+            <Link to={`/admin/projects/${post.id}`}>
               <Edit size={16} />
             </Link>
           </Button>
@@ -260,7 +268,7 @@ export default function AdminPosts() {
               <AlertDialogHeader>
                 <AlertDialogTitle>Delete Post</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Are you sure you want to permanently delete "{post.title}"? This action cannot be undone.
+                  Are you sure you want to permanently delete "{post.title}"? This also deletes any project interviews attached to it.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
@@ -290,13 +298,13 @@ export default function AdminPosts() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-heading text-2xl font-semibold text-foreground">Blog Posts</h1>
-          <p className="text-muted-foreground text-sm">Manage your blog content</p>
+          <h1 className="font-heading text-2xl font-semibold text-foreground">Projects</h1>
+          <p className="text-muted-foreground text-sm">Create long-term project pages and interview collections</p>
         </div>
         <Button variant="hero" asChild>
-          <Link to="/admin/posts/new">
+          <Link to="/admin/projects/new">
             <Plus size={18} />
-            Add Post
+            Add Project
           </Link>
         </Button>
       </div>
@@ -318,7 +326,7 @@ export default function AdminPosts() {
           {publishedPosts.length > 0 ? (
             publishedPosts.map((post) => <PostCard key={post.id} post={post} />)
           ) : (
-            <EmptyState message="No published posts yet." />
+            <EmptyState message="No published projects yet." />
           )}
         </TabsContent>
 
@@ -326,7 +334,7 @@ export default function AdminPosts() {
           {draftPosts.length > 0 ? (
             draftPosts.map((post) => <PostCard key={post.id} post={post} />)
           ) : (
-            <EmptyState message="No draft posts. Create one to get started!" />
+            <EmptyState message="No draft projects. Create one to get started!" />
           )}
         </TabsContent>
 
@@ -334,7 +342,7 @@ export default function AdminPosts() {
           {archivedPosts.length > 0 ? (
             archivedPosts.map((post) => <PostCard key={post.id} post={post} />)
           ) : (
-            <EmptyState message="No archived posts." />
+            <EmptyState message="No archived projects." />
           )}
         </TabsContent>
       </Tabs>

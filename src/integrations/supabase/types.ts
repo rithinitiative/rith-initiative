@@ -175,6 +175,8 @@ export type Database = {
           id: string
           is_archived: boolean
           is_published: boolean
+          project_display_order: number
+          project_slug: string | null
           published_at: string | null
           title: string
           updated_at: string
@@ -190,6 +192,8 @@ export type Database = {
           id?: string
           is_archived?: boolean
           is_published?: boolean
+          project_display_order?: number
+          project_slug?: string | null
           published_at?: string | null
           title: string
           updated_at?: string
@@ -205,6 +209,8 @@ export type Database = {
           id?: string
           is_archived?: boolean
           is_published?: boolean
+          project_display_order?: number
+          project_slug?: string | null
           published_at?: string | null
           title?: string
           updated_at?: string
@@ -372,6 +378,62 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      project_interviews: {
+        Row: {
+          audio_url: string | null
+          created_at: string
+          created_by: string | null
+          display_order: number
+          id: string
+          interviewee_description: string | null
+          interviewee_name: string | null
+          is_published: boolean
+          portrait_url: string | null
+          project_id: string
+          title: string
+          transcript: string | null
+          updated_at: string
+        }
+        Insert: {
+          audio_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          display_order?: number
+          id?: string
+          interviewee_description?: string | null
+          interviewee_name?: string | null
+          is_published?: boolean
+          portrait_url?: string | null
+          project_id: string
+          title: string
+          transcript?: string | null
+          updated_at?: string
+        }
+        Update: {
+          audio_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          display_order?: number
+          id?: string
+          interviewee_description?: string | null
+          interviewee_name?: string | null
+          is_published?: boolean
+          portrait_url?: string | null
+          project_id?: string
+          title?: string
+          transcript?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_interviews_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "blog_posts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       shop_items: {
         Row: {

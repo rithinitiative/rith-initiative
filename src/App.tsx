@@ -34,8 +34,6 @@ const AdminSubscribers = lazy(() => import("./pages/admin/AdminSubscribers"));
 const AdminShop = lazy(() => import("./pages/admin/AdminShop"));
 const AdminShopItemForm = lazy(() => import("./pages/admin/AdminShopItemForm"));
 const AdminTeam = lazy(() => import("./pages/admin/AdminTeam"));
-const AdminProjects = lazy(() => import("./pages/admin/AdminProjects"));
-const AdminProjectForm = lazy(() => import("./pages/admin/AdminProjectForm"));
 
 function RouteLoadingFallback() {
   return (
@@ -79,13 +77,14 @@ const App = () => (
                 <Route path="events" element={<AdminEvents />} />
                 <Route path="events/new" element={<AdminEventForm />} />
                 <Route path="events/:id" element={<AdminEventForm />} />
-                <Route path="projects" element={<AdminProjects />} />
-                <Route path="projects/:id" element={<AdminProjectForm />} />
+                <Route path="projects" element={<AdminPosts />} />
+                <Route path="projects/new" element={<AdminPostForm />} />
+                <Route path="projects/:id" element={<AdminPostForm />} />
                 <Route path="updates" element={<AdminUpdates />} />
                 <Route path="updates/new" element={<AdminUpdateForm />} />
                 <Route path="updates/:id" element={<AdminUpdateForm />} />
-                <Route path="posts" element={<AdminPosts />} />
-                <Route path="posts/new" element={<AdminPostForm />} />
+                <Route path="posts" element={<Navigate to="/admin/projects" replace />} />
+                <Route path="posts/new" element={<Navigate to="/admin/projects/new" replace />} />
                 <Route path="posts/:id" element={<AdminPostForm />} />
                 <Route path="gallery" element={<AdminGallery />} />
                 <Route path="team" element={<AdminTeam />} />

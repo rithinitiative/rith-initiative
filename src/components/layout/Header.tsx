@@ -23,7 +23,8 @@ interface ProjectNavItem {
   title: string;
   project_slug: string | null;
   project_display_order: number | null;
-  start_date: string;
+  published_at: string | null;
+  created_at: string | null;
 }
 
 export function Header() {
@@ -37,13 +38,12 @@ export function Header() {
   useEffect(() => {
     const fetchProjects = async () => {
       const { data, error } = await supabase
-        .from("events")
-        .select("id, title, project_slug, project_display_order, start_date")
-        .eq("is_project", true)
-        .eq("project_is_published", true)
+        .from("blog_posts")
+        .select("id, title, project_slug, project_display_order, published_at, created_at")
         .eq("is_archived", false)
+        .eq("is_published", true)
         .order("project_display_order", { ascending: true })
-        .order("start_date", { ascending: true });
+        .order("published_at", { ascending: false });
 
       if (!error) {
         setProjects(sortProjects((data || []) as ProjectNavItem[]));

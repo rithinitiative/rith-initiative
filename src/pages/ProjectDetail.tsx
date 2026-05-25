@@ -45,6 +45,9 @@ const formatTranscript = (value: string) =>
     .map((paragraph) => paragraph.trim())
     .filter(Boolean);
 
+const isUuid = (value: string) =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+
 function InterviewCard({ interview }: { interview: ProjectInterview }) {
   const hasDetails = Boolean(interview.portrait_url || interview.interviewee_description);
   const transcriptParagraphs = interview.transcript ? formatTranscript(interview.transcript) : [];
@@ -130,13 +133,15 @@ export default function ProjectDetail() {
       if (!slug) return;
 
       try {
-        const { data, error } = await supabase
+        let query = supabase
           .from("blog_posts")
           .select("id, title, content, excerpt, featured_image_url, project_slug")
           .eq("is_published", true)
-          .eq("is_archived", false)
-          .or(`project_slug.eq.${slug},id.eq.${slug}`)
-          .maybeSingle();
+          .eq("is_archived", false);
+
+        query = isUuid(slug) ? query.eq("id", slug) : query.eq("project_slug", slug);
+
+        const { data, error } = await query.maybeSingle();
 
         if (error) throw error;
         setProject((data || null) as Project | null);

@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, GripVertical, Headphones, Plus, Save, Trash2, Upload } from 'lucide-react';
+import { ArrowLeft, FileText, GripVertical, Headphones, Loader2, Plus, Save, Trash2, Upload } from 'lucide-react';
 import { ImageUpload } from '@/components/admin/ImageUpload';
 import { MediaManager, MediaItem } from '@/components/admin/MediaManager';
 import { createProjectSlug } from '@/lib/projects';
@@ -60,6 +60,7 @@ export default function AdminPostForm() {
   const [interviews, setInterviews] = useState<InterviewFormData[]>([]);
   const [deletedInterviewIds, setDeletedInterviewIds] = useState<string[]>([]);
   const [uploadingInterviewIndex, setUploadingInterviewIndex] = useState<number | null>(null);
+  const [transcribingInterviewIndex, setTranscribingInterviewIndex] = useState<number | null>(null);
   const audioInputRefs = useRef<Record<number, HTMLInputElement | null>>({});
 
   const [formData, setFormData] = useState<ProjectFormData>({
@@ -226,6 +227,53 @@ export default function AdminPostForm() {
       });
     } finally {
       setUploadingInterviewIndex(null);
+    }
+  };
+
+  const handleGenerateTranscript = async (index: number) => {
+    const interview = interviews[index];
+
+    if (!interview.id) {
+      toast({
+        title: 'Save project first',
+        description: 'Please save the project before generating a transcript for this interview.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!interview.audio_url) {
+      toast({
+        title: 'Audio required',
+        description: 'Please upload an audio file before generating a transcript.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setTranscribingInterviewIndex(index);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('transcribe-interview', {
+        body: { interviewId: interview.id },
+      });
+
+      if (error) throw error;
+
+      updateInterview(index, { transcript: data?.transcript || '' });
+      toast({
+        title: 'Transcript generated',
+        description: 'The transcript has been saved and synced with the audio.',
+      });
+    } catch (error) {
+      console.error('Error generating transcript:', error);
+      toast({
+        title: 'Transcription failed',
+        description: 'Please try again. If this keeps happening, make sure the transcription service is configured.',
+        variant: 'destructive',
+      });
+    } finally {
+      setTranscribingInterviewIndex(null);
     }
   };
 
@@ -627,14 +675,33 @@ export default function AdminPostForm() {
                     {interview.audio_url ? (
                       <div className="rounded-lg border border-border bg-secondary/30 p-4">
                         <audio src={interview.audio_url} controls className="w-full" />
-                        <div className="mt-3 flex gap-2">
+                        <div className="mt-3 flex flex-wrap gap-2">
                           <Button type="button" variant="outline" size="sm" onClick={() => audioInputRefs.current[index]?.click()}>
                             Replace Audio
                           </Button>
                           <Button type="button" variant="ghost" size="sm" onClick={() => updateInterview(index, { audio_url: '' })}>
                             Remove
                           </Button>
+                          <Button
+                            type="button"
+                            variant="hero"
+                            size="sm"
+                            onClick={() => handleGenerateTranscript(index)}
+                            disabled={!interview.id || transcribingInterviewIndex === index}
+                          >
+                            {transcribingInterviewIndex === index ? (
+                              <Loader2 size={15} className="animate-spin" />
+                            ) : (
+                              <FileText size={15} />
+                            )}
+                            {transcribingInterviewIndex === index ? 'Transcribing...' : 'Generate Transcript'}
+                          </Button>
                         </div>
+                        {!interview.id && (
+                          <p className="mt-2 text-xs text-muted-foreground">
+                            Save the project first to generate a synced transcript.
+                          </p>
+                        )}
                       </div>
                     ) : (
                       <button
@@ -664,7 +731,7 @@ export default function AdminPostForm() {
                     <Textarea
                       value={interview.transcript}
                       onChange={(e) => updateInterview(index, { transcript: e.target.value })}
-                      placeholder="Paste the interview transcript here. Paragraph breaks will be preserved."
+                      placeholder="Paste the interview transcript here, or use Generate Transcript after uploading audio."
                       rows={8}
                     />
                   </div>

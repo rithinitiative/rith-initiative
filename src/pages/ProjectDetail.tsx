@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ArrowLeft, FileText, Headphones, Image as ImageIcon, UserRound } from "lucide-react";
 import { Layout } from "@/components/layout/Layout";
@@ -28,6 +28,7 @@ interface ProjectInterview {
   portrait_url: string | null;
   audio_url: string | null;
   transcript: string | null;
+  transcript_segments: unknown;
   display_order: number;
 }
 
@@ -48,9 +49,126 @@ const formatTranscript = (value: string) =>
 const isUuid = (value: string) =>
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 
+interface TranscriptSegment {
+  start: number;
+  end: number;
+  text: string;
+}
+
+const getTranscriptSegments = (value: unknown): TranscriptSegment[] => {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .map((segment) => {
+      if (!segment || typeof segment !== "object") return null;
+      const raw = segment as { start?: unknown; end?: unknown; text?: unknown };
+      const start = typeof raw.start === "number" ? raw.start : Number(raw.start);
+      const end = typeof raw.end === "number" ? raw.end : Number(raw.end);
+      const text = typeof raw.text === "string" ? raw.text.trim() : "";
+
+      if (!Number.isFinite(start) || !Number.isFinite(end) || !text) return null;
+      return { start, end, text };
+    })
+    .filter((segment): segment is TranscriptSegment => Boolean(segment));
+};
+
+function SyncedTranscript({
+  audioUrl,
+  transcript,
+  segments,
+}: {
+  audioUrl: string | null;
+  transcript: string | null;
+  segments: TranscriptSegment[];
+}) {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const activeSegmentRef = useRef<HTMLButtonElement | null>(null);
+  const [currentTime, setCurrentTime] = useState(0);
+  const transcriptParagraphs = transcript ? formatTranscript(transcript) : [];
+  const activeSegmentIndex = useMemo(
+    () => segments.findIndex((segment) => currentTime >= segment.start && currentTime <= segment.end),
+    [currentTime, segments],
+  );
+
+  useEffect(() => {
+    activeSegmentRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [activeSegmentIndex]);
+
+  const seekToSegment = (segment: TranscriptSegment) => {
+    if (!audioRef.current) return;
+    audioRef.current.currentTime = segment.start;
+    audioRef.current.play().catch(() => undefined);
+  };
+
+  return (
+    <>
+      {audioUrl && (
+        <div className="mb-5 rounded-md border border-border/50 bg-secondary/30 p-4">
+          <p className="mb-3 flex items-center gap-2 text-sm font-medium text-foreground">
+            <Headphones size={16} />
+            Audio Interview
+          </p>
+          <audio
+            ref={audioRef}
+            src={audioUrl}
+            controls
+            className="w-full"
+            onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)}
+            onSeeked={(event) => setCurrentTime(event.currentTarget.currentTime)}
+          />
+        </div>
+      )}
+
+      {(segments.length > 0 || transcriptParagraphs.length > 0) && (
+        <details className="group rounded-md border border-border/50 bg-background" open={segments.length > 0}>
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 font-medium text-foreground">
+            <span className="flex items-center gap-2">
+              <FileText size={16} />
+              Transcript
+            </span>
+            <span className="text-sm text-muted-foreground group-open:hidden">Open</span>
+            <span className="hidden text-sm text-muted-foreground group-open:inline">Close</span>
+          </summary>
+          <div className="max-h-[26rem] overflow-y-auto border-t border-border/50 px-4 py-4">
+            {segments.length > 0 ? (
+              <div className="space-y-2">
+                {segments.map((segment, index) => {
+                  const isActive = index === activeSegmentIndex;
+
+                  return (
+                    <button
+                      key={`${segment.start}-${index}`}
+                      ref={isActive ? activeSegmentRef : undefined}
+                      type="button"
+                      onClick={() => seekToSegment(segment)}
+                      className={`block w-full rounded-md px-3 py-2 text-left text-sm leading-7 transition-colors ${
+                        isActive
+                          ? "bg-primary/10 text-foreground"
+                          : "text-muted-foreground hover:bg-secondary/70 hover:text-foreground"
+                      }`}
+                    >
+                      {segment.text}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              transcriptParagraphs.map((paragraph, index) => (
+                <p key={index} className="mb-4 text-sm leading-7 text-muted-foreground last:mb-0">
+                  {paragraph}
+                </p>
+              ))
+            )}
+          </div>
+        </details>
+      )}
+    </>
+  );
+}
+
 function InterviewCard({ interview }: { interview: ProjectInterview }) {
   const hasDetails = Boolean(interview.portrait_url || interview.interviewee_description);
-  const transcriptParagraphs = interview.transcript ? formatTranscript(interview.transcript) : [];
+  const transcriptSegments = getTranscriptSegments(interview.transcript_segments);
 
   return (
     <article className="rounded-lg border border-border/50 bg-card shadow-soft">
@@ -84,35 +202,11 @@ function InterviewCard({ interview }: { interview: ProjectInterview }) {
             )}
           </div>
 
-          {interview.audio_url && (
-            <div className="mb-5 rounded-md border border-border/50 bg-secondary/30 p-4">
-              <p className="mb-3 flex items-center gap-2 text-sm font-medium text-foreground">
-                <Headphones size={16} />
-                Audio Interview
-              </p>
-              <audio src={interview.audio_url} controls className="w-full" />
-            </div>
-          )}
-
-          {transcriptParagraphs.length > 0 && (
-            <details className="group rounded-md border border-border/50 bg-background">
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 font-medium text-foreground">
-                <span className="flex items-center gap-2">
-                  <FileText size={16} />
-                  Transcript
-                </span>
-                <span className="text-sm text-muted-foreground group-open:hidden">Open</span>
-                <span className="hidden text-sm text-muted-foreground group-open:inline">Close</span>
-              </summary>
-              <div className="max-h-[26rem] overflow-y-auto border-t border-border/50 px-4 py-4">
-                {transcriptParagraphs.map((paragraph, index) => (
-                  <p key={index} className="mb-4 text-sm leading-7 text-muted-foreground last:mb-0">
-                    {paragraph}
-                  </p>
-                ))}
-              </div>
-            </details>
-          )}
+          <SyncedTranscript
+            audioUrl={interview.audio_url}
+            transcript={interview.transcript}
+            segments={transcriptSegments}
+          />
         </div>
       </div>
     </article>
@@ -150,7 +244,7 @@ export default function ProjectDetail() {
           const [{ data: interviewData }, { data: mediaData }] = await Promise.all([
             supabase
               .from("project_interviews")
-              .select("id, title, interviewee_name, interviewee_description, portrait_url, audio_url, transcript, display_order")
+              .select("id, title, interviewee_name, interviewee_description, portrait_url, audio_url, transcript, transcript_segments, display_order")
               .eq("project_id", data.id)
               .eq("is_published", true)
               .order("display_order", { ascending: true }),

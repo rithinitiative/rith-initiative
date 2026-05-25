@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, FileText, Edit, Archive, Trash2, RotateCcw, Eye, Globe, GlobeLock } from 'lucide-react';
+import { Plus, FileText, Edit, Archive, Trash2, RotateCcw, Eye, Globe, GlobeLock, ArrowUp, ArrowDown } from 'lucide-react';
 import { BlogDetailModal } from '@/components/shared/BlogDetailModal';
 import { format } from 'date-fns';
 import { getProjectPath } from '@/lib/projects';
@@ -41,6 +41,7 @@ export default function AdminPosts() {
   const [isLoading, setIsLoading] = useState(true);
   const [previewPost, setPreviewPost] = useState<BlogPost | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [movingPostId, setMovingPostId] = useState<string | null>(null);
   const { toast } = useToast();
 
   const fetchPosts = async () => {
@@ -147,9 +148,64 @@ export default function AdminPosts() {
     }
   };
 
-  const publishedPosts = posts.filter((p) => p.is_published && !p.is_archived);
-  const draftPosts = posts.filter((p) => !p.is_published && !p.is_archived);
-  const archivedPosts = posts.filter((p) => p.is_archived);
+  const sortProjectList = (projectList: BlogPost[]) =>
+    [...projectList].sort((a, b) => {
+      const orderDiff = (a.project_display_order ?? 0) - (b.project_display_order ?? 0);
+      if (orderDiff !== 0) return orderDiff;
+
+      return new Date(b.published_at || b.created_at).getTime() - new Date(a.published_at || a.created_at).getTime();
+    });
+
+  const handleMoveProject = async (orderedProjects: BlogPost[], projectId: string, direction: 'up' | 'down') => {
+    const currentIndex = orderedProjects.findIndex((project) => project.id === projectId);
+    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+
+    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= orderedProjects.length) return;
+
+    const reordered = [...orderedProjects];
+    const [movedProject] = reordered.splice(currentIndex, 1);
+    reordered.splice(targetIndex, 0, movedProject);
+
+    setPosts((prev) => {
+      const orderById = new Map(reordered.map((project, index) => [project.id, index]));
+      return prev.map((project) => (
+        orderById.has(project.id)
+          ? { ...project, project_display_order: orderById.get(project.id) ?? project.project_display_order }
+          : project
+      ));
+    });
+    setMovingPostId(projectId);
+
+    try {
+      for (const [index, project] of reordered.entries()) {
+        const { error } = await supabase
+          .from('blog_posts')
+          .update({ project_display_order: index })
+          .eq('id', project.id);
+
+        if (error) throw error;
+      }
+
+      toast({
+        title: 'Project order updated',
+        description: 'The website will show projects in this order.',
+      });
+    } catch (error) {
+      console.error('Error reordering projects:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to reorder projects. Please try again.',
+        variant: 'destructive',
+      });
+      fetchPosts();
+    } finally {
+      setMovingPostId(null);
+    }
+  };
+
+  const publishedPosts = sortProjectList(posts.filter((p) => p.is_published && !p.is_archived));
+  const draftPosts = sortProjectList(posts.filter((p) => !p.is_published && !p.is_archived));
+  const archivedPosts = sortProjectList(posts.filter((p) => p.is_archived));
 
   if (isLoading) {
     return (
@@ -159,7 +215,19 @@ export default function AdminPosts() {
     );
   }
 
-  const PostCard = ({ post }: { post: BlogPost }) => (
+  const PostCard = ({
+    post,
+    orderedPosts,
+    canReorder = true,
+  }: {
+    post: BlogPost;
+    orderedPosts: BlogPost[];
+    canReorder?: boolean;
+  }) => {
+    const postIndex = orderedPosts.findIndex((item) => item.id === post.id);
+    const isMoving = movingPostId === post.id;
+
+    return (
     <div className="p-4 rounded-xl bg-card border border-border/50 shadow-soft">
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1 min-w-0">
@@ -203,6 +271,33 @@ export default function AdminPosts() {
         </div>
 
         <div className="flex items-center gap-2 flex-shrink-0">
+          {canReorder && orderedPosts.length > 1 && (
+            <div className="flex flex-col rounded-md border border-border/70 bg-background/80 overflow-hidden">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 rounded-none"
+                onClick={() => handleMoveProject(orderedPosts, post.id, 'up')}
+                disabled={postIndex <= 0 || isMoving}
+                aria-label={`Move ${post.title} up`}
+                title="Move up"
+              >
+                <ArrowUp size={14} />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 rounded-none border-t border-border/70"
+                onClick={() => handleMoveProject(orderedPosts, post.id, 'down')}
+                disabled={postIndex === orderedPosts.length - 1 || isMoving}
+                aria-label={`Move ${post.title} down`}
+                title="Move down"
+              >
+                <ArrowDown size={14} />
+              </Button>
+            </div>
+          )}
+
           {post.is_published && !post.is_archived ? (
             <Button variant="ghost" size="icon" asChild title="View on website">
               <Link to={getProjectPath(post)}>
@@ -285,7 +380,8 @@ export default function AdminPosts() {
         </div>
       </div>
     </div>
-  );
+    );
+  };
 
   const EmptyState = ({ message }: { message: string }) => (
     <div className="text-center py-12 text-muted-foreground">
@@ -324,7 +420,7 @@ export default function AdminPosts() {
 
         <TabsContent value="published" className="space-y-4 mt-6">
           {publishedPosts.length > 0 ? (
-            publishedPosts.map((post) => <PostCard key={post.id} post={post} />)
+            publishedPosts.map((post) => <PostCard key={post.id} post={post} orderedPosts={publishedPosts} />)
           ) : (
             <EmptyState message="No published projects yet." />
           )}
@@ -332,7 +428,7 @@ export default function AdminPosts() {
 
         <TabsContent value="drafts" className="space-y-4 mt-6">
           {draftPosts.length > 0 ? (
-            draftPosts.map((post) => <PostCard key={post.id} post={post} />)
+            draftPosts.map((post) => <PostCard key={post.id} post={post} orderedPosts={draftPosts} />)
           ) : (
             <EmptyState message="No draft projects. Create one to get started!" />
           )}
@@ -340,7 +436,7 @@ export default function AdminPosts() {
 
         <TabsContent value="archived" className="space-y-4 mt-6">
           {archivedPosts.length > 0 ? (
-            archivedPosts.map((post) => <PostCard key={post.id} post={post} />)
+            archivedPosts.map((post) => <PostCard key={post.id} post={post} orderedPosts={archivedPosts} canReorder={false} />)
           ) : (
             <EmptyState message="No archived projects." />
           )}

@@ -21,7 +21,7 @@ interface ProjectFormData {
   category: string;
   featured_image_url: string;
   project_slug: string;
-  project_display_order: string;
+  project_display_order: number;
   is_published: boolean;
 }
 
@@ -70,7 +70,7 @@ export default function AdminPostForm() {
     category: 'Project',
     featured_image_url: '',
     project_slug: '',
-    project_display_order: '0',
+    project_display_order: 0,
     is_published: false,
   });
 
@@ -104,7 +104,7 @@ export default function AdminPostForm() {
             category: project.category || 'Project',
             featured_image_url: project.featured_image_url || '',
             project_slug: project.project_slug || '',
-            project_display_order: String(project.project_display_order ?? 0),
+            project_display_order: project.project_display_order ?? 0,
             is_published: project.is_published || false,
           });
         }
@@ -330,7 +330,19 @@ export default function AdminPostForm() {
 
     try {
       const slug = createProjectSlug(formData.project_slug || formData.title);
-      const displayOrder = Number.parseInt(formData.project_display_order, 10);
+      let displayOrder = formData.project_display_order;
+
+      if (!isEditing) {
+        const { data: orderData, error: orderError } = await supabase
+          .from('blog_posts')
+          .select('project_display_order')
+          .order('project_display_order', { ascending: false })
+          .limit(1);
+
+        if (orderError) throw orderError;
+        displayOrder = ((orderData?.[0]?.project_display_order ?? -1) as number) + 1;
+      }
+
       const projectData = {
         title: formData.title,
         content: formData.content,
@@ -339,7 +351,7 @@ export default function AdminPostForm() {
         category: formData.category || 'Project',
         featured_image_url: formData.featured_image_url || null,
         project_slug: slug,
-        project_display_order: Number.isFinite(displayOrder) ? displayOrder : 0,
+        project_display_order: displayOrder,
         is_published: formData.is_published,
         published_at: formData.is_published ? new Date().toISOString() : null,
         created_by: user?.id,
@@ -420,29 +432,16 @@ export default function AdminPostForm() {
 
       <form onSubmit={handleSubmit} className="space-y-8 max-w-4xl">
         <section className="space-y-4 rounded-lg border border-border/50 bg-card p-5 shadow-soft">
-          <div className="grid gap-4 sm:grid-cols-[1fr_12rem]">
-            <div className="space-y-2">
-              <Label htmlFor="title">Project Title *</Label>
-              <Input
-                id="title"
-                name="title"
-                value={formData.title}
-                onChange={handleChange}
-                placeholder="Threads & Bridges: Oral History Project"
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="project_display_order">Menu Order</Label>
-              <Input
-                id="project_display_order"
-                name="project_display_order"
-                type="number"
-                value={formData.project_display_order}
-                onChange={handleChange}
-                min="0"
-              />
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="title">Project Title *</Label>
+            <Input
+              id="title"
+              name="title"
+              value={formData.title}
+              onChange={handleChange}
+              placeholder="Threads & Bridges: Oral History Project"
+              required
+            />
           </div>
 
           <div className="space-y-2">

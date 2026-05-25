@@ -104,9 +104,9 @@ function InterviewCard({ interview }: { interview: ProjectInterview }) {
                 <span className="text-sm text-muted-foreground group-open:hidden">Open</span>
                 <span className="hidden text-sm text-muted-foreground group-open:inline">Close</span>
               </summary>
-              <div className="max-h-[26rem] overflow-y-auto border-t border-border/50 px-4 py-4">
+              <div className="max-h-[26rem] overflow-y-auto overflow-x-hidden border-t border-border/50 px-4 py-4">
                 {transcriptParagraphs.map((paragraph, index) => (
-                  <p key={index} className="mb-4 text-sm leading-7 text-muted-foreground last:mb-0">
+                  <p key={index} className="mb-4 max-w-full text-sm leading-7 text-muted-foreground [overflow-wrap:anywhere] last:mb-0">
                     {paragraph}
                   </p>
                 ))}

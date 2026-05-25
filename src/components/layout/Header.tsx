@@ -6,6 +6,7 @@ import { NewsletterPopup } from "@/components/shared/NewsletterPopup";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { getProjectPath, sortProjects } from "@/lib/projects";
+import { isProjectRecord } from "@/lib/postClassification";
 import logo from "@/assets/logo.png";
 
 const navLinks = [
@@ -21,6 +22,7 @@ const navLinks = [
 interface ProjectNavItem {
   id: string;
   title: string;
+  category: string | null;
   project_slug: string | null;
   project_display_order: number | null;
   published_at: string | null;
@@ -39,14 +41,14 @@ export function Header() {
     const fetchProjects = async () => {
       const { data, error } = await supabase
         .from("blog_posts")
-        .select("id, title, project_slug, project_display_order, published_at, created_at")
+        .select("id, title, category, project_slug, project_display_order, published_at, created_at")
         .eq("is_archived", false)
         .eq("is_published", true)
         .order("project_display_order", { ascending: true })
         .order("published_at", { ascending: false });
 
       if (!error) {
-        setProjects(sortProjects((data || []) as ProjectNavItem[]));
+        setProjects(sortProjects(((data || []) as ProjectNavItem[]).filter(isProjectRecord)));
       }
     };
 

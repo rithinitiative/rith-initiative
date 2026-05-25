@@ -115,13 +115,13 @@ function TeamMemberCard({ member }: { member: TeamMember }) {
 
 function TeamMembersGrid({ members }: { members: TeamMember[] }) {
   return (
-    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="flex flex-wrap justify-center gap-6">
       {members.map((member, index) => (
         <ScrollReveal
           key={`${member.name}-${index}`}
           variant="fade-up"
           delay={index * 100}
-          className="h-full min-w-0"
+          className="h-full min-w-0 w-full sm:w-[calc(50%-0.75rem)] lg:w-[calc(25%-1.125rem)] max-w-[19rem]"
         >
           <TeamMemberCard member={member} />
         </ScrollReveal>

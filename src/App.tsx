@@ -26,6 +26,8 @@ const AdminEvents = lazy(() => import("./pages/admin/AdminEvents"));
 const AdminEventForm = lazy(() => import("./pages/admin/AdminEventForm"));
 const AdminPosts = lazy(() => import("./pages/admin/AdminPosts"));
 const AdminPostForm = lazy(() => import("./pages/admin/AdminPostForm"));
+const AdminBlogPosts = lazy(() => import("./pages/admin/AdminBlogPosts"));
+const AdminBlogPostForm = lazy(() => import("./pages/admin/AdminBlogPostForm"));
 const AdminUpdates = lazy(() => import("./pages/admin/AdminUpdates"));
 const AdminUpdateForm = lazy(() => import("./pages/admin/AdminUpdateForm"));
 const AdminGallery = lazy(() => import("./pages/admin/AdminGallery"));
@@ -80,12 +82,12 @@ const App = () => (
                 <Route path="projects" element={<AdminPosts />} />
                 <Route path="projects/new" element={<AdminPostForm />} />
                 <Route path="projects/:id" element={<AdminPostForm />} />
+                <Route path="posts" element={<AdminBlogPosts />} />
+                <Route path="posts/new" element={<AdminBlogPostForm />} />
+                <Route path="posts/:id" element={<AdminBlogPostForm />} />
                 <Route path="updates" element={<AdminUpdates />} />
                 <Route path="updates/new" element={<AdminUpdateForm />} />
                 <Route path="updates/:id" element={<AdminUpdateForm />} />
-                <Route path="posts" element={<Navigate to="/admin/projects" replace />} />
-                <Route path="posts/new" element={<Navigate to="/admin/projects/new" replace />} />
-                <Route path="posts/:id" element={<AdminPostForm />} />
                 <Route path="gallery" element={<AdminGallery />} />
                 <Route path="team" element={<AdminTeam />} />
                 <Route path="users" element={<AdminUsers />} />

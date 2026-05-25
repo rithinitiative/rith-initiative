@@ -10,12 +10,14 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { createBreadcrumbSchema, createWebPageSchema } from "@/lib/seo";
 import { getProjectPath, sortProjects } from "@/lib/projects";
+import { isProjectRecord } from "@/lib/postClassification";
 
 interface Project {
   id: string;
   title: string;
   excerpt: string | null;
   featured_image_url: string | null;
+  category: string | null;
   project_slug: string | null;
   project_display_order: number | null;
   published_at: string | null;
@@ -32,7 +34,7 @@ export default function Projects() {
       try {
         const { data, error } = await supabase
           .from("blog_posts")
-          .select("id, title, excerpt, featured_image_url, project_slug, project_display_order, published_at, created_at")
+          .select("id, title, excerpt, featured_image_url, category, project_slug, project_display_order, published_at, created_at")
           .eq("is_published", true)
           .eq("is_archived", false)
           .order("project_display_order", { ascending: true })
@@ -40,7 +42,7 @@ export default function Projects() {
 
         if (error) throw error;
 
-        const projectList = sortProjects((data || []) as Project[]);
+        const projectList = sortProjects(((data || []) as Project[]).filter(isProjectRecord));
         setProjects(projectList);
 
         if (projectList.length > 0) {

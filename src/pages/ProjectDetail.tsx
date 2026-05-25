@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { createBreadcrumbSchema, createWebPageSchema } from "@/lib/seo";
 import { sanitizeRichText } from "@/lib/richText";
+import { isProjectRecord } from "@/lib/postClassification";
 
 interface Project {
   id: string;
@@ -17,6 +18,7 @@ interface Project {
   content: string;
   excerpt: string | null;
   featured_image_url: string | null;
+  category: string | null;
   project_slug: string | null;
 }
 
@@ -135,7 +137,7 @@ export default function ProjectDetail() {
       try {
         let query = supabase
           .from("blog_posts")
-          .select("id, title, content, excerpt, featured_image_url, project_slug")
+          .select("id, title, content, excerpt, featured_image_url, category, project_slug")
           .eq("is_published", true)
           .eq("is_archived", false);
 
@@ -144,21 +146,22 @@ export default function ProjectDetail() {
         const { data, error } = await query.maybeSingle();
 
         if (error) throw error;
-        setProject((data || null) as Project | null);
+        const projectData = data && isProjectRecord(data) ? data : null;
+        setProject((projectData || null) as Project | null);
 
-        if (data?.id) {
+        if (projectData?.id) {
           const [{ data: interviewData }, { data: mediaData }] = await Promise.all([
             supabase
               .from("project_interviews")
               .select("id, title, interviewee_name, interviewee_description, portrait_url, audio_url, transcript, display_order")
-              .eq("project_id", data.id)
+              .eq("project_id", projectData.id)
               .eq("is_published", true)
               .order("display_order", { ascending: true }),
             supabase
               .from("media")
               .select("id, url, media_type, title, description")
               .eq("entity_type", "blog_post")
-              .eq("entity_id", data.id)
+              .eq("entity_id", projectData.id)
               .order("display_order", { ascending: true }),
           ]);
 

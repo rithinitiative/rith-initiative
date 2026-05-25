@@ -3,11 +3,11 @@ import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, FileText, Edit, Archive, Trash2, RotateCcw, Eye, Globe, GlobeLock, ArrowUp, ArrowDown } from 'lucide-react';
+import { Plus, FileText, Edit, Archive, Trash2, RotateCcw, Eye, Globe, GlobeLock } from 'lucide-react';
+import { FormSubmissionsViewer } from '@/components/admin/FormSubmissionsViewer';
 import { BlogDetailModal } from '@/components/shared/BlogDetailModal';
 import { format } from 'date-fns';
-import { getProjectPath } from '@/lib/projects';
-import { isProjectRecord } from '@/lib/postClassification';
+import { isBlogPostRecord } from '@/lib/postClassification';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,17 +32,15 @@ interface BlogPost {
   is_published: boolean;
   is_archived: boolean;
   project_slug: string | null;
-  project_display_order: number | null;
   published_at: string | null;
   created_at: string;
 }
 
-export default function AdminPosts() {
+export default function AdminBlogPosts() {
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [previewPost, setPreviewPost] = useState<BlogPost | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const [movingPostId, setMovingPostId] = useState<string | null>(null);
   const { toast } = useToast();
 
   const fetchPosts = async () => {
@@ -53,12 +51,12 @@ export default function AdminPosts() {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setPosts(((data || []) as BlogPost[]).filter(isProjectRecord));
+      setPosts(((data || []) as BlogPost[]).filter(isBlogPostRecord));
     } catch (error) {
-      console.error('Error fetching posts:', error);
+      console.error('Error fetching blog posts:', error);
       toast({
         title: 'Error',
-        description: 'Failed to load projects.',
+        description: 'Failed to load blog posts.',
         variant: 'destructive',
       });
     } finally {
@@ -77,16 +75,17 @@ export default function AdminPosts() {
         .update({
           is_published: publish,
           published_at: publish ? new Date().toISOString() : null,
+          project_slug: null,
         })
         .eq('id', id);
 
       if (error) throw error;
 
       toast({
-        title: publish ? 'Project published' : 'Project unpublished',
+        title: publish ? 'Post published' : 'Post unpublished',
         description: publish
-          ? 'The project is now visible on the website.'
-          : 'The project is now hidden from the website.',
+          ? 'The post is published in the admin. It is not connected to a public page yet.'
+          : 'The post is now saved as a draft.',
       });
 
       fetchPosts();
@@ -94,7 +93,7 @@ export default function AdminPosts() {
       console.error('Error updating post:', error);
       toast({
         title: 'Error',
-        description: 'Failed to update project.',
+        description: 'Failed to update post.',
         variant: 'destructive',
       });
     }
@@ -104,16 +103,14 @@ export default function AdminPosts() {
     try {
       const { error } = await supabase
         .from('blog_posts')
-        .update({ is_archived: archive })
+        .update({ is_archived: archive, project_slug: null })
         .eq('id', id);
 
       if (error) throw error;
 
       toast({
-        title: archive ? 'Project archived' : 'Project restored',
-        description: archive
-          ? 'The project has been archived.'
-          : 'The project has been restored.',
+        title: archive ? 'Post archived' : 'Post restored',
+        description: archive ? 'The post has been archived.' : 'The post has been restored.',
       });
 
       fetchPosts();
@@ -121,7 +118,7 @@ export default function AdminPosts() {
       console.error('Error updating post:', error);
       toast({
         title: 'Error',
-        description: 'Failed to update project.',
+        description: 'Failed to update post.',
         variant: 'destructive',
       });
     }
@@ -134,8 +131,8 @@ export default function AdminPosts() {
       if (error) throw error;
 
       toast({
-        title: 'Project deleted',
-        description: 'The project has been permanently deleted.',
+        title: 'Post deleted',
+        description: 'The post has been permanently deleted.',
       });
 
       fetchPosts();
@@ -143,70 +140,15 @@ export default function AdminPosts() {
       console.error('Error deleting post:', error);
       toast({
         title: 'Error',
-        description: 'Failed to delete project.',
+        description: 'Failed to delete post.',
         variant: 'destructive',
       });
     }
   };
 
-  const sortProjectList = (projectList: BlogPost[]) =>
-    [...projectList].sort((a, b) => {
-      const orderDiff = (a.project_display_order ?? 0) - (b.project_display_order ?? 0);
-      if (orderDiff !== 0) return orderDiff;
-
-      return new Date(b.published_at || b.created_at).getTime() - new Date(a.published_at || a.created_at).getTime();
-    });
-
-  const handleMoveProject = async (orderedProjects: BlogPost[], projectId: string, direction: 'up' | 'down') => {
-    const currentIndex = orderedProjects.findIndex((project) => project.id === projectId);
-    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
-
-    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= orderedProjects.length) return;
-
-    const reordered = [...orderedProjects];
-    const [movedProject] = reordered.splice(currentIndex, 1);
-    reordered.splice(targetIndex, 0, movedProject);
-
-    setPosts((prev) => {
-      const orderById = new Map(reordered.map((project, index) => [project.id, index]));
-      return prev.map((project) => (
-        orderById.has(project.id)
-          ? { ...project, project_display_order: orderById.get(project.id) ?? project.project_display_order }
-          : project
-      ));
-    });
-    setMovingPostId(projectId);
-
-    try {
-      for (const [index, project] of reordered.entries()) {
-        const { error } = await supabase
-          .from('blog_posts')
-          .update({ project_display_order: index })
-          .eq('id', project.id);
-
-        if (error) throw error;
-      }
-
-      toast({
-        title: 'Project order updated',
-        description: 'The website will show projects in this order.',
-      });
-    } catch (error) {
-      console.error('Error reordering projects:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to reorder projects. Please try again.',
-        variant: 'destructive',
-      });
-      fetchPosts();
-    } finally {
-      setMovingPostId(null);
-    }
-  };
-
-  const publishedPosts = sortProjectList(posts.filter((p) => p.is_published && !p.is_archived));
-  const draftPosts = sortProjectList(posts.filter((p) => !p.is_published && !p.is_archived));
-  const archivedPosts = sortProjectList(posts.filter((p) => p.is_archived));
+  const publishedPosts = posts.filter((p) => p.is_published && !p.is_archived);
+  const draftPosts = posts.filter((p) => !p.is_published && !p.is_archived);
+  const archivedPosts = posts.filter((p) => p.is_archived);
 
   if (isLoading) {
     return (
@@ -216,19 +158,7 @@ export default function AdminPosts() {
     );
   }
 
-  const PostCard = ({
-    post,
-    orderedPosts,
-    canReorder = true,
-  }: {
-    post: BlogPost;
-    orderedPosts: BlogPost[];
-    canReorder?: boolean;
-  }) => {
-    const postIndex = orderedPosts.findIndex((item) => item.id === post.id);
-    const isMoving = movingPostId === post.id;
-
-    return (
+  const PostCard = ({ post }: { post: BlogPost }) => (
     <div className="p-4 rounded-xl bg-card border border-border/50 shadow-soft">
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1 min-w-0">
@@ -272,55 +202,22 @@ export default function AdminPosts() {
         </div>
 
         <div className="flex items-center gap-2 flex-shrink-0">
-          {canReorder && orderedPosts.length > 1 && (
-            <div className="flex flex-col rounded-md border border-border/70 bg-background/80 overflow-hidden">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 rounded-none"
-                onClick={() => handleMoveProject(orderedPosts, post.id, 'up')}
-                disabled={postIndex <= 0 || isMoving}
-                aria-label={`Move ${post.title} up`}
-                title="Move up"
-              >
-                <ArrowUp size={14} />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 rounded-none border-t border-border/70"
-                onClick={() => handleMoveProject(orderedPosts, post.id, 'down')}
-                disabled={postIndex === orderedPosts.length - 1 || isMoving}
-                aria-label={`Move ${post.title} down`}
-                title="Move down"
-              >
-                <ArrowDown size={14} />
-              </Button>
-            </div>
-          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => {
+              setPreviewPost(post);
+              setIsPreviewOpen(true);
+            }}
+            title="Preview"
+          >
+            <Eye size={16} />
+          </Button>
 
-          {post.is_published && !post.is_archived ? (
-            <Button variant="ghost" size="icon" asChild title="View on website">
-              <Link to={getProjectPath(post)}>
-                <Eye size={16} />
-              </Link>
-            </Button>
-          ) : (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => {
-                setPreviewPost(post);
-                setIsPreviewOpen(true);
-              }}
-              title="Preview draft"
-            >
-              <Eye size={16} />
-            </Button>
-          )}
-          
+          <FormSubmissionsViewer postId={post.id} postTitle={post.title} />
+
           <Button variant="ghost" size="icon" asChild title="Edit">
-            <Link to={`/admin/projects/${post.id}`}>
+            <Link to={`/admin/posts/${post.id}`}>
               <Edit size={16} />
             </Link>
           </Button>
@@ -364,7 +261,7 @@ export default function AdminPosts() {
               <AlertDialogHeader>
                 <AlertDialogTitle>Delete Post</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Are you sure you want to permanently delete "{post.title}"? This also deletes any project interviews attached to it.
+                  Are you sure you want to permanently delete "{post.title}"? This action cannot be undone.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
@@ -381,8 +278,7 @@ export default function AdminPosts() {
         </div>
       </div>
     </div>
-    );
-  };
+  );
 
   const EmptyState = ({ message }: { message: string }) => (
     <div className="text-center py-12 text-muted-foreground">
@@ -395,13 +291,15 @@ export default function AdminPosts() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-heading text-2xl font-semibold text-foreground">Projects</h1>
-          <p className="text-muted-foreground text-sm">Create long-term project pages and interview collections</p>
+          <h1 className="font-heading text-2xl font-semibold text-foreground">Blog Posts</h1>
+          <p className="text-muted-foreground text-sm">
+            Create and manage standalone blog posts. These are not connected to a public page yet.
+          </p>
         </div>
         <Button variant="hero" asChild>
-          <Link to="/admin/projects/new">
+          <Link to="/admin/posts/new">
             <Plus size={18} />
-            Add Project
+            Add Post
           </Link>
         </Button>
       </div>
@@ -421,30 +319,30 @@ export default function AdminPosts() {
 
         <TabsContent value="published" className="space-y-4 mt-6">
           {publishedPosts.length > 0 ? (
-            publishedPosts.map((post) => <PostCard key={post.id} post={post} orderedPosts={publishedPosts} />)
+            publishedPosts.map((post) => <PostCard key={post.id} post={post} />)
           ) : (
-            <EmptyState message="No published projects yet." />
+            <EmptyState message="No published posts yet." />
           )}
         </TabsContent>
 
         <TabsContent value="drafts" className="space-y-4 mt-6">
           {draftPosts.length > 0 ? (
-            draftPosts.map((post) => <PostCard key={post.id} post={post} orderedPosts={draftPosts} />)
+            draftPosts.map((post) => <PostCard key={post.id} post={post} />)
           ) : (
-            <EmptyState message="No draft projects. Create one to get started!" />
+            <EmptyState message="No draft posts. Create one to get started!" />
           )}
         </TabsContent>
 
         <TabsContent value="archived" className="space-y-4 mt-6">
           {archivedPosts.length > 0 ? (
-            archivedPosts.map((post) => <PostCard key={post.id} post={post} orderedPosts={archivedPosts} canReorder={false} />)
+            archivedPosts.map((post) => <PostCard key={post.id} post={post} />)
           ) : (
-            <EmptyState message="No archived projects." />
+            <EmptyState message="No archived posts." />
           )}
         </TabsContent>
       </Tabs>
 
-      <BlogDetailModal 
+      <BlogDetailModal
         post={previewPost}
         open={isPreviewOpen}
         onOpenChange={setIsPreviewOpen}

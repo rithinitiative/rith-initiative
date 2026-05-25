@@ -393,8 +393,6 @@ export type Database = {
           project_id: string
           title: string
           transcript: string | null
-          transcript_generated_at: string | null
-          transcript_segments: Json
           updated_at: string
         }
         Insert: {
@@ -410,8 +408,6 @@ export type Database = {
           project_id: string
           title: string
           transcript?: string | null
-          transcript_generated_at?: string | null
-          transcript_segments?: Json
           updated_at?: string
         }
         Update: {
@@ -427,8 +423,6 @@ export type Database = {
           project_id?: string
           title?: string
           transcript?: string | null
-          transcript_generated_at?: string | null
-          transcript_segments?: Json
           updated_at?: string
         }
         Relationships: [

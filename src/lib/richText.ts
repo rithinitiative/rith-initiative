@@ -16,8 +16,17 @@ const legacyTextToHtml = (value: string) =>
     .replace(/__([^_]+)__/g, "<u>$1</u>")
     .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
 
+const decodeEncodedHtml = (value: string) => {
+  if (!/&lt;\/?[a-z]/i.test(value)) return value;
+
+  const template = document.createElement("template");
+  template.innerHTML = value;
+  return template.textContent || value;
+};
+
 export const sanitizeRichText = (value: string) => {
-  const rawHtml = /<\/?[a-z][\s\S]*>/i.test(value) ? value : legacyTextToHtml(value);
+  const decodedValue = decodeEncodedHtml(value);
+  const rawHtml = /<\/?[a-z][\s\S]*>/i.test(decodedValue) ? decodedValue : legacyTextToHtml(decodedValue);
   const template = document.createElement("template");
   template.innerHTML = rawHtml;
   const allowedTags = new Set(["A", "B", "BR", "DIV", "EM", "I", "LI", "OL", "P", "STRONG", "U", "UL"]);
@@ -56,3 +65,32 @@ export const sanitizeRichText = (value: string) => {
 
 export const getEditableRichText = (value: string) =>
   /<\/?[a-z][\s\S]*>/i.test(value) ? value : legacyTextToHtml(value);
+
+export const htmlToPlainText = (value: string) => {
+  if (!/<\/?[a-z][\s\S]*>/i.test(value) && !/&lt;\/?[a-z]/i.test(value)) return value;
+
+  const decoded = decodeEncodedHtml(value);
+  const source = /<\/?[a-z][\s\S]*>/i.test(decoded) ? decoded : value;
+
+  const template = document.createElement("template");
+  template.innerHTML = source;
+  const blockTags = new Set(["DIV", "H1", "H2", "H3", "H4", "H5", "H6", "LI", "P"]);
+
+  const readNode = (node: Node): string => {
+    if (node.nodeType === Node.TEXT_NODE) return node.textContent || "";
+    if (node.nodeType !== Node.ELEMENT_NODE && node.nodeType !== Node.DOCUMENT_FRAGMENT_NODE) return "";
+
+    const element = node as HTMLElement;
+    if (element.tagName === "BR") return "\n";
+
+    const content = Array.from(node.childNodes).map(readNode).join("");
+    if (blockTags.has(element.tagName)) return `${content.trim()}\n\n`;
+    return content;
+  };
+
+  return readNode(template.content)
+    .replace(/\u00a0/g, " ")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+};

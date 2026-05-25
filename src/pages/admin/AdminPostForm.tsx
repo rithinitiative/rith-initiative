@@ -12,12 +12,12 @@ import { ArrowLeft, GripVertical, Headphones, Plus, Save, Trash2, Upload } from 
 import { ImageUpload } from '@/components/admin/ImageUpload';
 import { MediaManager, MediaItem } from '@/components/admin/MediaManager';
 import { createProjectSlug } from '@/lib/projects';
+import { htmlToPlainText } from '@/lib/richText';
 
 interface ProjectFormData {
   title: string;
   content: string;
   excerpt: string;
-  author_name: string;
   category: string;
   featured_image_url: string;
   project_slug: string;
@@ -66,7 +66,6 @@ export default function AdminPostForm() {
     title: '',
     content: '',
     excerpt: '',
-    author_name: '',
     category: 'Project',
     featured_image_url: '',
     project_slug: '',
@@ -98,9 +97,8 @@ export default function AdminPostForm() {
         if (project) {
           setFormData({
             title: project.title || '',
-            content: project.content || '',
+            content: htmlToPlainText(project.content || ''),
             excerpt: project.excerpt || '',
-            author_name: project.author_name || '',
             category: project.category || 'Project',
             featured_image_url: project.featured_image_url || '',
             project_slug: project.project_slug || '',
@@ -345,9 +343,9 @@ export default function AdminPostForm() {
 
       const projectData = {
         title: formData.title,
-        content: formData.content,
+        content: htmlToPlainText(formData.content),
         excerpt: formData.excerpt || null,
-        author_name: formData.author_name || null,
+        author_name: null,
         category: formData.category || 'Project',
         featured_image_url: formData.featured_image_url || null,
         project_slug: slug,
@@ -490,27 +488,15 @@ export default function AdminPostForm() {
             />
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="author_name">Credit / Author</Label>
-              <Input
-                id="author_name"
-                name="author_name"
-                value={formData.author_name}
-                onChange={handleChange}
-                placeholder="Optional"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="category">Category</Label>
-              <Input
-                id="category"
-                name="category"
-                value={formData.category}
-                onChange={handleChange}
-                placeholder="Project"
-              />
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="category">Category</Label>
+            <Input
+              id="category"
+              name="category"
+              value={formData.category}
+              onChange={handleChange}
+              placeholder="Project"
+            />
           </div>
 
           <div className="flex items-center gap-3 rounded-lg bg-secondary/30 p-4">

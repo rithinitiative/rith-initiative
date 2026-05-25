@@ -310,7 +310,7 @@ export function MediaManager({ entityType, entityId, onMediaChange }: MediaManag
                 </div>
               ) : (
                 <div className="space-y-2">
-                  <Label className="text-xs">Upload or URL</Label>
+                  <Label className="text-xs">{item.media_type === 'image' ? 'Upload or URL' : 'Upload'}</Label>
                   {item.url ? (
                     <div className="relative group">
                       {item.media_type === 'video' ? (
@@ -340,7 +340,7 @@ export function MediaManager({ entityType, entityId, onMediaChange }: MediaManag
                       </button>
                     </div>
                   ) : (
-                    <div className="flex gap-2">
+                    <div className="flex flex-col gap-2 sm:flex-row">
                       <div
                         onClick={() => fileInputRefs.current[index]?.click()}
                         onDrop={(e) => {
@@ -371,14 +371,16 @@ export function MediaManager({ entityType, entityId, onMediaChange }: MediaManag
                         }}
                         className="hidden"
                       />
-                      <div className="flex-1">
-                        <Input
-                          value={item.url}
-                          onChange={(e) => updateMediaItem(index, { url: e.target.value })}
-                          placeholder="Or paste URL"
-                          className="h-24"
-                        />
-                      </div>
+                      {item.media_type === 'image' && (
+                        <div className="flex-1">
+                          <Input
+                            value={item.url}
+                            onChange={(e) => updateMediaItem(index, { url: e.target.value })}
+                            placeholder="Or paste image URL"
+                            className="h-24"
+                          />
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

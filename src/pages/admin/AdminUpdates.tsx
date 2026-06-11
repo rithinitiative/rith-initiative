@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Edit, Archive, Trash2, RotateCcw, Globe, GlobeLock, Image, Video, Link as LinkIcon, Bell } from 'lucide-react';
 import { format } from 'date-fns';
+import { htmlToPlainText } from '@/lib/richText';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -200,7 +201,7 @@ export default function AdminUpdates() {
           </div>
           {update.description && (
             <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
-              {update.description}
+              {htmlToPlainText(update.description)}
             </p>
           )}
         </div>

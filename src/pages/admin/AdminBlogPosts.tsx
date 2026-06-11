@@ -8,6 +8,7 @@ import { FormSubmissionsViewer } from '@/components/admin/FormSubmissionsViewer'
 import { BlogDetailModal } from '@/components/shared/BlogDetailModal';
 import { format } from 'date-fns';
 import { isBlogPostRecord } from '@/lib/postClassification';
+import { htmlToPlainText } from '@/lib/richText';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -196,7 +197,7 @@ export default function AdminBlogPosts() {
           </div>
           {post.excerpt && (
             <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
-              {post.excerpt}
+              {htmlToPlainText(post.excerpt)}
             </p>
           )}
         </div>

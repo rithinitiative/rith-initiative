@@ -4,6 +4,7 @@ import { format } from 'date-fns';
 import { Heart, Play, ExternalLink, Image, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { BlogFormDisplay } from './BlogFormDisplay';
 import { Button } from '@/components/ui/button';
+import { sanitizeRichText } from '@/lib/richText';
 import {
   Dialog,
   DialogContent,
@@ -154,7 +155,7 @@ export function BlogDetailModal({ post, open, onOpenChange }: BlogDetailModalPro
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-2xl p-0 gap-0 overflow-hidden">
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-5xl p-0 gap-0 overflow-hidden">
           {/* Header */}
           <div className="p-6 pb-4">
             <DialogHeader>
@@ -180,7 +181,7 @@ export function BlogDetailModal({ post, open, onOpenChange }: BlogDetailModalPro
           </div>
 
           {/* Scrollable Content Area */}
-          <div className="max-h-[60vh] overflow-y-auto">
+          <div className="max-h-[72vh] overflow-y-auto">
             {post.featured_image_url && (
               <div className="px-6 pb-4">
                 <img
@@ -193,9 +194,16 @@ export function BlogDetailModal({ post, open, onOpenChange }: BlogDetailModalPro
 
             {/* Content - Compact excerpt style */}
             <div className="px-6 pb-4">
-              <p className="text-sm text-muted-foreground leading-relaxed line-clamp-4">
-                {post.excerpt || post.content.substring(0, 200)}
-              </p>
+              {post.excerpt ? (
+                <p className="text-sm text-muted-foreground leading-relaxed line-clamp-4">
+                  {post.excerpt}
+                </p>
+              ) : (
+                <div
+                  className="text-sm text-muted-foreground leading-relaxed [&_a]:font-medium [&_a]:text-primary [&_a]:underline [&_a]:underline-offset-2 [&_h2]:font-heading [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:text-foreground [&_h3]:font-heading [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:text-foreground [&_ol]:my-3 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-3 [&_p:last-child]:mb-0 [&_ul]:my-3 [&_ul]:list-disc [&_ul]:pl-5"
+                  dangerouslySetInnerHTML={{ __html: sanitizeRichText(post.content) }}
+                />
+              )}
             </div>
 
             {/* Media Gallery - Compact thumbnails */}
@@ -246,7 +254,7 @@ export function BlogDetailModal({ post, open, onOpenChange }: BlogDetailModalPro
             )}
 
             {/* Interactive Form */}
-            <div className="px-6">
+            <div className="px-6 pb-6 md:px-8">
               <BlogFormDisplay postId={post.id} />
             </div>
           </div>

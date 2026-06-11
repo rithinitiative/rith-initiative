@@ -25,6 +25,7 @@ interface Project {
 interface ProjectInterview {
   id: string;
   title: string;
+  category: string | null;
   interviewee_name: string | null;
   interviewee_description: string | null;
   portrait_url: string | null;
@@ -71,9 +72,10 @@ function InterviewCard({ interview }: { interview: ProjectInterview }) {
               </div>
             )}
             {interview.interviewee_description && (
-              <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
-                {interview.interviewee_description}
-              </p>
+              <div
+                className="mt-4 text-sm leading-relaxed text-muted-foreground [&_a]:font-medium [&_a]:text-primary [&_a]:underline [&_a]:underline-offset-2 [&_h2]:font-heading [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:text-foreground [&_h3]:font-heading [&_h3]:text-base [&_h3]:font-semibold [&_h3]:text-foreground [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-2 [&_p:last-child]:mb-0 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5"
+                dangerouslySetInnerHTML={{ __html: sanitizeRichText(interview.interviewee_description) }}
+              />
             )}
           </div>
         )}
@@ -125,6 +127,7 @@ export default function ProjectDetail() {
   const { slug } = useParams();
   const [project, setProject] = useState<Project | null>(null);
   const [interviews, setInterviews] = useState<ProjectInterview[]>([]);
+  const [selectedInterviewCategory, setSelectedInterviewCategory] = useState<string | null>(null);
   const [media, setMedia] = useState<MediaItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -153,7 +156,7 @@ export default function ProjectDetail() {
           const [{ data: interviewData }, { data: mediaData }] = await Promise.all([
             supabase
               .from("project_interviews")
-              .select("id, title, interviewee_name, interviewee_description, portrait_url, audio_url, transcript, display_order")
+              .select("id, title, category, interviewee_name, interviewee_description, portrait_url, audio_url, transcript, display_order")
               .eq("project_id", projectData.id)
               .eq("is_published", true)
               .order("display_order", { ascending: true }),
@@ -217,6 +220,12 @@ export default function ProjectDetail() {
     { name: "Projects", path: "/projects" },
     { name: project.title, path: projectPath },
   ]);
+  const interviewCategories = Array.from(new Set(interviews
+    .map((interview) => interview.category)
+    .filter((category): category is string => Boolean(category && category.trim()))));
+  const visibleInterviews = selectedInterviewCategory
+    ? interviews.filter((interview) => interview.category === selectedInterviewCategory)
+    : interviews;
 
   return (
     <Layout>
@@ -229,31 +238,44 @@ export default function ProjectDetail() {
         jsonLd={[projectPageSchema, breadcrumbSchema]}
       />
 
-      <section className="relative overflow-hidden bg-foreground text-background">
-        {project.featured_image_url && (
-          <img
-            src={project.featured_image_url}
-            alt={project.title}
-            className="absolute inset-0 h-full w-full object-cover opacity-40"
-          />
-        )}
-        <div className="absolute inset-0 bg-foreground/65" />
-        <div className="container-wide relative z-10 flex min-h-[62vh] items-end pb-14 pt-32">
-          <ScrollReveal variant="fade-up" className="max-w-4xl">
-            <Button variant="ghost" className="mb-8 text-background hover:bg-background/10 hover:text-background" asChild>
+      <section className="section-padding bg-secondary/20">
+        <div className="container-wide">
+          <ScrollReveal variant="fade-up">
+            <Button variant="ghost" className="mb-8 text-muted-foreground hover:text-foreground" asChild>
               <Link to="/projects">
                 <ArrowLeft size={17} />
                 Projects
               </Link>
             </Button>
-            <p className="mb-4 flex items-center gap-2 text-sm font-medium uppercase tracking-[0.2em] text-background/70">
-              <Headphones size={16} />
-              Project Collection
-            </p>
-            <h1 className="font-heading text-4xl font-semibold md:text-5xl lg:text-6xl">{project.title}</h1>
-            {project.excerpt && (
-              <p className="mt-6 max-w-3xl text-lg leading-relaxed text-background/80">{project.excerpt}</p>
-            )}
+
+            <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] xl:gap-14">
+              <div className="overflow-hidden rounded-lg border border-border/50 bg-card shadow-soft">
+                {project.featured_image_url ? (
+                  <img
+                    src={project.featured_image_url}
+                    alt={project.title}
+                    className="aspect-[4/3] w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex aspect-[4/3] items-center justify-center bg-background">
+                    <ImageIcon className="h-12 w-12 text-muted-foreground/60" />
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <p className="mb-4 flex items-center gap-2 text-sm font-medium uppercase tracking-[0.2em] text-primary">
+                  <Headphones size={16} />
+                  Project Collection
+                </p>
+                <h1 className="font-heading text-4xl font-semibold leading-tight text-foreground md:text-5xl lg:text-6xl">
+                  {project.title}
+                </h1>
+                {project.excerpt && (
+                  <p className="mt-6 text-lg leading-relaxed text-muted-foreground">{project.excerpt}</p>
+                )}
+              </div>
+            </div>
           </ScrollReveal>
         </div>
       </section>
@@ -284,8 +306,31 @@ export default function ProjectDetail() {
                   </p>
                 </div>
               </ScrollReveal>
+              {interviewCategories.length > 0 && (
+                <div className="mb-8 flex flex-wrap gap-3">
+                  <Button
+                    type="button"
+                    variant={selectedInterviewCategory === null ? "hero" : "outline"}
+                    size="sm"
+                    onClick={() => setSelectedInterviewCategory(null)}
+                  >
+                    All Interviews
+                  </Button>
+                  {interviewCategories.map((category) => (
+                    <Button
+                      key={category}
+                      type="button"
+                      variant={selectedInterviewCategory === category ? "hero" : "outline"}
+                      size="sm"
+                      onClick={() => setSelectedInterviewCategory(category)}
+                    >
+                      {category}
+                    </Button>
+                  ))}
+                </div>
+              )}
               <div className="space-y-6">
-                {interviews.map((interview) => (
+                {visibleInterviews.map((interview) => (
                   <InterviewCard key={interview.id} interview={interview} />
                 ))}
               </div>
@@ -332,7 +377,12 @@ export default function ProjectDetail() {
                     {(item.title || item.description) && (
                       <div className="p-4">
                         {item.title && <p className="font-medium text-foreground">{item.title}</p>}
-                        {item.description && <p className="mt-1 text-sm text-muted-foreground">{item.description}</p>}
+                        {item.description && (
+                          <div
+                            className="mt-1 text-sm text-muted-foreground [&_a]:font-medium [&_a]:text-primary [&_a]:underline [&_a]:underline-offset-2 [&_p]:mb-2 [&_p:last-child]:mb-0"
+                            dangerouslySetInnerHTML={{ __html: sanitizeRichText(item.description) }}
+                          />
+                        )}
                       </div>
                     )}
                   </button>

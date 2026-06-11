@@ -13,6 +13,7 @@ const queryClient = new QueryClient();
 const Index = lazy(() => import("./pages/Index"));
 const About = lazy(() => import("./pages/About"));
 const Events = lazy(() => import("./pages/Events"));
+const Blogs = lazy(() => import("./pages/Blogs"));
 const Donate = lazy(() => import("./pages/Donate"));
 const Projects = lazy(() => import("./pages/Projects"));
 const ProjectDetail = lazy(() => import("./pages/ProjectDetail"));
@@ -65,7 +66,8 @@ const App = () => (
               <Route path="/about" element={<About />} />
               <Route path="/events" element={<Events />} />
               <Route path="/events/share/:id" element={<EventShareRedirect />} />
-              <Route path="/stories" element={<Navigate to="/projects" replace />} />
+              <Route path="/blogs" element={<Blogs />} />
+              <Route path="/stories" element={<Navigate to="/blogs" replace />} />
               <Route path="/projects" element={<Projects />} />
               <Route path="/projects/:slug" element={<ProjectDetail />} />
               <Route path="/shop" element={<Shop />} />

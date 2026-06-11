@@ -11,6 +11,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { createWebPageSchema, organizationSchema, websiteSchema } from "@/lib/seo";
+import { sanitizeRichText } from "@/lib/richText";
 import {
   EVENT_ORDER_ENTITY_ID,
   EVENT_ORDER_ENTITY_TYPE,
@@ -245,7 +246,10 @@ function UpdatesPreviewSection() {
                       {update.media_type === "link" && <ExternalLink size={16} className="text-muted-foreground" />}
                     </h3>
                     {update.description &&
-                <p className="text-muted-foreground text-sm leading-relaxed line-clamp-3">{update.description}</p>
+                <div
+                  className="text-muted-foreground text-sm leading-relaxed line-clamp-3 [&_a]:font-medium [&_a]:text-primary [&_a]:underline [&_a]:underline-offset-2 [&_p]:mb-2 [&_p:last-child]:mb-0"
+                  dangerouslySetInnerHTML={{ __html: sanitizeRichText(update.description) }}
+                />
                 }
                   </div>
                 </article>

@@ -269,13 +269,13 @@ export function BlogFormDisplay({ postId }: BlogFormDisplayProps) {
   }
 
   return (
-    <div className="mt-8 p-6 rounded-lg border border-border bg-secondary/20">
-      <div className="mb-4">
-        <h3 className="font-heading text-lg font-semibold text-foreground">
+    <div className="mt-8 rounded-lg border border-border bg-secondary/20 p-5 sm:p-7 lg:p-8">
+      <div className="mb-6">
+        <h3 className="font-heading text-xl font-semibold text-foreground md:text-2xl">
           {form.title}
         </h3>
         {form.description && (
-          <p className="text-sm text-muted-foreground mt-1">{form.description}</p>
+          <p className="mt-2 max-w-3xl text-base leading-relaxed text-muted-foreground">{form.description}</p>
         )}
       </div>
 
@@ -288,26 +288,26 @@ export function BlogFormDisplay({ postId }: BlogFormDisplayProps) {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-8">
         {fields.map((field) => (
-          <div key={field.id} className={field.field_type === 'section' ? 'pt-4 first:pt-0' : 'space-y-2'}>
+          <div key={field.id} className={field.field_type === 'section' ? 'pt-4 first:pt-0' : 'space-y-3'}>
             {field.field_type === 'section' ? (
-              <div className="border-t border-border pt-5 first:border-t-0 first:pt-0">
-                <h4 className="font-heading text-base font-semibold text-foreground">
+              <div className="border-t border-border pt-6 first:border-t-0 first:pt-0">
+                <h4 className="font-heading text-lg font-semibold text-foreground md:text-xl">
                   {field.label}
                 </h4>
                 {field.description && (
-                  <p className="text-sm text-muted-foreground mt-1">{field.description}</p>
+                  <p className="mt-2 text-base leading-relaxed text-muted-foreground">{field.description}</p>
                 )}
               </div>
             ) : (
             <>
-            <Label className="flex items-center gap-1">
+            <Label className="flex items-center gap-1 text-base font-medium">
               {field.label}
               {field.is_required && <span className="text-destructive">*</span>}
             </Label>
             {field.description && (
-              <p className="text-xs text-muted-foreground">{field.description}</p>
+              <p className="text-sm text-muted-foreground">{field.description}</p>
             )}
 
             {(field.field_type === 'text' || field.field_type === 'short_answer') && (
@@ -315,6 +315,7 @@ export function BlogFormDisplay({ postId }: BlogFormDisplayProps) {
                 value={(responses[field.id] as string) || ''}
                 onChange={(e) => handleInputChange(field.id, e.target.value)}
                 placeholder="Your answer"
+                className="h-12 text-base"
               />
             )}
 
@@ -323,7 +324,8 @@ export function BlogFormDisplay({ postId }: BlogFormDisplayProps) {
                 value={(responses[field.id] as string) || ''}
                 onChange={(e) => handleInputChange(field.id, e.target.value)}
                 placeholder="Your answer"
-                rows={4}
+                rows={5}
+                className="text-base"
               />
             )}
 
@@ -331,12 +333,12 @@ export function BlogFormDisplay({ postId }: BlogFormDisplayProps) {
               <RadioGroup
                 value={(responses[field.id] as string) || ''}
                 onValueChange={(value) => handleInputChange(field.id, value)}
-                className="space-y-2"
+                className="space-y-3"
               >
                 {field.options.map((option, idx) => (
                   <div key={idx} className="flex items-center space-x-2">
                     <RadioGroupItem value={option} id={`${field.id}-${idx}`} />
-                    <Label htmlFor={`${field.id}-${idx}`} className="font-normal cursor-pointer">
+                    <Label htmlFor={`${field.id}-${idx}`} className="cursor-pointer text-base font-normal leading-relaxed">
                       {option}
                     </Label>
                   </div>
@@ -356,7 +358,7 @@ export function BlogFormDisplay({ postId }: BlogFormDisplayProps) {
                         handleInputChange(field.id, '__other__');
                       }}
                       placeholder="Your answer"
-                      className="sm:max-w-xs"
+                      className="h-12 text-base sm:max-w-md"
                     />
                   </div>
                 )}
@@ -364,7 +366,7 @@ export function BlogFormDisplay({ postId }: BlogFormDisplayProps) {
             )}
 
             {field.field_type === 'checkbox' && Array.isArray(field.options) && field.options.length > 0 ? (
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {field.options.map((option, idx) => {
                   const selectedOptions = (responses[field.id] as string) || '';
                   const selectedArray = selectedOptions ? selectedOptions.split('|||') : [];
@@ -385,7 +387,7 @@ export function BlogFormDisplay({ postId }: BlogFormDisplayProps) {
                           handleInputChange(field.id, newSelected.join('|||'));
                         }}
                       />
-                      <Label htmlFor={`${field.id}-${idx}`} className="font-normal cursor-pointer">
+                      <Label htmlFor={`${field.id}-${idx}`} className="cursor-pointer text-base font-normal leading-relaxed">
                         {option}
                       </Label>
                     </div>
@@ -425,7 +427,7 @@ export function BlogFormDisplay({ postId }: BlogFormDisplayProps) {
                           }
                         }}
                         placeholder="Your answer"
-                        className="sm:max-w-xs"
+                        className="h-12 text-base sm:max-w-md"
                       />
                     </div>
                   );
@@ -438,7 +440,7 @@ export function BlogFormDisplay({ postId }: BlogFormDisplayProps) {
                   checked={(responses[field.id] as boolean) || false}
                   onCheckedChange={(checked) => handleInputChange(field.id, checked === true)}
                 />
-                <Label htmlFor={field.id} className="font-normal cursor-pointer">
+                <Label htmlFor={field.id} className="cursor-pointer text-base font-normal">
                   Yes
                 </Label>
               </div>
@@ -451,7 +453,7 @@ export function BlogFormDisplay({ postId }: BlogFormDisplayProps) {
                     type="button"
                     variant="outline"
                     className={cn(
-                      "w-full justify-start text-left font-normal",
+                      "h-12 w-full justify-start text-left text-base font-normal",
                       !responses[field.id] && "text-muted-foreground"
                     )}
                   >
@@ -476,7 +478,7 @@ export function BlogFormDisplay({ postId }: BlogFormDisplayProps) {
           </div>
         ))}
 
-        <Button type="submit" disabled={isSubmitting}>
+        <Button type="submit" size="lg" disabled={isSubmitting}>
           {isSubmitting ? (
             <>
               <Loader2 size={16} className="mr-2 animate-spin" />

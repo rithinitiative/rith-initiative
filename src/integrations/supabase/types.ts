@@ -382,6 +382,7 @@ export type Database = {
       project_interviews: {
         Row: {
           audio_url: string | null
+          category: string | null
           created_at: string
           created_by: string | null
           display_order: number
@@ -397,6 +398,7 @@ export type Database = {
         }
         Insert: {
           audio_url?: string | null
+          category?: string | null
           created_at?: string
           created_by?: string | null
           display_order?: number
@@ -412,6 +414,7 @@ export type Database = {
         }
         Update: {
           audio_url?: string | null
+          category?: string | null
           created_at?: string
           created_by?: string | null
           display_order?: number

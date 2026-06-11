@@ -4,10 +4,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Upload, X, Loader2 } from 'lucide-react';
+import { RichTextEditor } from '@/components/admin/RichTextEditor';
 
 export default function AdminShopItemForm() {
   const { id } = useParams();
@@ -168,7 +168,13 @@ export default function AdminShopItemForm() {
         {/* Description */}
         <div className="space-y-2">
           <Label htmlFor="description">Description</Label>
-          <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Describe this item..." rows={4} />
+          <RichTextEditor
+            id="description"
+            value={description}
+            onChange={setDescription}
+            placeholder="Describe this item..."
+            minHeightClassName="min-h-[170px]"
+          />
         </div>
 
         {/* Price & Category */}

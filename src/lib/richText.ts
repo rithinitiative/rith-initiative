@@ -29,7 +29,7 @@ export const sanitizeRichText = (value: string) => {
   const rawHtml = /<\/?[a-z][\s\S]*>/i.test(decodedValue) ? decodedValue : legacyTextToHtml(decodedValue);
   const template = document.createElement("template");
   template.innerHTML = rawHtml;
-  const allowedTags = new Set(["A", "B", "BR", "DIV", "EM", "I", "LI", "OL", "P", "STRONG", "U", "UL"]);
+  const allowedTags = new Set(["A", "B", "BR", "DIV", "EM", "H2", "H3", "I", "LI", "OL", "P", "STRONG", "U", "UL"]);
 
   const cleanNode = (node: Node) => {
     Array.from(node.childNodes).forEach((child) => {

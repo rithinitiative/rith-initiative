@@ -10,7 +10,7 @@ interface ImageUploadProps {
   label?: string;
 }
 
-export function ImageUpload({ value, onChange, label = 'Featured Image' }: ImageUploadProps) {
+export function ImageUpload({ value, onChange, label = 'Hero Image' }: ImageUploadProps) {
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();

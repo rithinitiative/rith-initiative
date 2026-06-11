@@ -14,6 +14,7 @@ const navLinks = [
   { href: "/about", label: "About" },
   { href: "/projects", label: "Projects" },
   { href: "/events", label: "Events" },
+  { href: "/blogs", label: "Blogs" },
   { href: "/shop", label: "Shop" },
   { href: "/donate", label: "Donate" },
   { href: "/contact", label: "Contact" },
@@ -101,7 +102,7 @@ export function Header() {
             </Link>
 
             {/* Desktop Navigation */}
-            <div className="hidden md:flex items-center gap-8">
+            <div className="hidden md:flex items-center gap-6 lg:gap-8">
               {navLinks.map((link) =>
                 link.href === "/projects" ? (
                   <div key={link.href} className="group relative py-8">

@@ -8,6 +8,7 @@ import { ScrollReveal } from "@/components/shared/ScrollReveal";
 import { supabase } from "@/integrations/supabase/client";
 import { Heart, Users, Globe, BookOpen } from "lucide-react";
 import { createBreadcrumbSchema, createWebPageSchema } from "@/lib/seo";
+import { sanitizeRichText } from "@/lib/richText";
 import missionCelebrationImage from "@/assets/mission-celebration.jpg";
 import ourStoryFoundingImage from "@/assets/our-story-founding.jpg";
 
@@ -104,9 +105,10 @@ function TeamMemberCard({ member }: { member: TeamMember }) {
         <h4 className="font-heading text-lg font-semibold text-foreground">{member.name}</h4>
         {member.role && <p className="text-sm text-muted-foreground">{member.role}</p>}
         {member.bio && (
-          <p className="mt-4 border-t border-border/60 pt-4 text-left text-sm leading-relaxed text-muted-foreground [overflow-wrap:anywhere]">
-            {member.bio}
-          </p>
+          <div
+            className="mt-4 border-t border-border/60 pt-4 text-left text-sm leading-relaxed text-muted-foreground [overflow-wrap:anywhere] [&_a]:font-medium [&_a]:text-primary [&_a]:underline [&_a]:underline-offset-2 [&_h2]:font-heading [&_h2]:text-base [&_h2]:font-semibold [&_h2]:text-foreground [&_h3]:font-heading [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:text-foreground [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-2 [&_p:last-child]:mb-0 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5"
+            dangerouslySetInnerHTML={{ __html: sanitizeRichText(member.bio) }}
+          />
         )}
       </div>
     </article>
@@ -343,30 +345,6 @@ export default function About() {
 
       <SectionDivider />
 
-      {/* Values Section */}
-      <section className="section-padding">
-        <div className="container-wide">
-          <ScrollReveal variant="fade-up">
-            <SectionHeading title="Our Values" subtitle="The principles that guide everything we do" centered />
-          </ScrollReveal>
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {values.map((value, index) => (
-              <ScrollReveal key={index} variant="fade-up" delay={index * 100}>
-                <div className="text-center p-8 rounded-2xl bg-card border border-border/50 shadow-soft hover:shadow-elevated transition-all duration-300 h-full">
-                  <div className="w-14 h-14 mx-auto mb-6 rounded-full bg-primary/10 flex items-center justify-center">
-                    <value.icon className="w-7 h-7 text-primary" />
-                  </div>
-                  <h3 className="font-heading text-xl font-semibold text-foreground mb-3">{value.title}</h3>
-                  <p className="text-muted-foreground text-sm leading-relaxed">{value.description}</p>
-                </div>
-              </ScrollReveal>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <SectionDivider />
-
       {/* Team Section */}
       <section className="section-padding bg-secondary/30">
         <div className="container-wide">
@@ -388,6 +366,30 @@ export default function About() {
               <h3 className="font-heading text-xl font-semibold text-foreground text-center mb-8">Advisory</h3>
             </ScrollReveal>
             <TeamMembersGrid members={advisoryMembers} />
+          </div>
+        </div>
+      </section>
+
+      <SectionDivider />
+
+      {/* Values Section */}
+      <section className="section-padding">
+        <div className="container-wide">
+          <ScrollReveal variant="fade-up">
+            <SectionHeading title="Our Values" subtitle="The principles that guide everything we do" centered />
+          </ScrollReveal>
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+            {values.map((value, index) => (
+              <ScrollReveal key={index} variant="fade-up" delay={index * 100}>
+                <div className="text-center p-8 rounded-2xl bg-card border border-border/50 shadow-soft hover:shadow-elevated transition-all duration-300 h-full">
+                  <div className="w-14 h-14 mx-auto mb-6 rounded-full bg-primary/10 flex items-center justify-center">
+                    <value.icon className="w-7 h-7 text-primary" />
+                  </div>
+                  <h3 className="font-heading text-xl font-semibold text-foreground mb-3">{value.title}</h3>
+                  <p className="text-muted-foreground text-sm leading-relaxed">{value.description}</p>
+                </div>
+              </ScrollReveal>
+            ))}
           </div>
         </div>
       </section>

@@ -8,6 +8,7 @@ import { BlogDetailModal } from '@/components/shared/BlogDetailModal';
 import { format } from 'date-fns';
 import { getProjectPath } from '@/lib/projects';
 import { isProjectRecord } from '@/lib/postClassification';
+import { htmlToPlainText } from '@/lib/richText';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -233,11 +234,6 @@ export default function AdminPosts() {
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-2 flex-wrap">
-            {post.category && (
-              <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-medium">
-                {post.category}
-              </span>
-            )}
             {post.is_published ? (
               <span className="px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-xs font-medium">
                 Published
@@ -266,7 +262,7 @@ export default function AdminPosts() {
           </div>
           {post.excerpt && (
             <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
-              {post.excerpt}
+              {htmlToPlainText(post.excerpt)}
             </p>
           )}
         </div>

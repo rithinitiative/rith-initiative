@@ -9,9 +9,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Save } from 'lucide-react';
-import { MediaManager, MediaItem } from '@/components/admin/MediaManager';
+import { ImageUpload } from '@/components/admin/ImageUpload';
 import { FormBuilder, FormBuilderHandle, FormData as BlogFormData } from '@/components/admin/FormBuilder';
-import { htmlToPlainText } from '@/lib/richText';
+import { RichTextEditor } from '@/components/admin/RichTextEditor';
+import { getEditableRichText } from '@/lib/richText';
 
 interface PostFormData {
   title: string;
@@ -31,7 +32,6 @@ export default function AdminBlogPostForm() {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(isEditing);
-  const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
   const [blogFormData, setBlogFormData] = useState<BlogFormData | null>(null);
   const formBuilderRef = useRef<FormBuilderHandle>(null);
 
@@ -61,7 +61,7 @@ export default function AdminBlogPostForm() {
         if (data) {
           setFormData({
             title: data.title || '',
-            content: htmlToPlainText(data.content || ''),
+            content: getEditableRichText(data.content || ''),
             excerpt: data.excerpt || '',
             author_name: data.author_name || '',
             category: data.category || '',
@@ -91,53 +91,9 @@ export default function AdminBlogPostForm() {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleMediaChange = useCallback((media: MediaItem[]) => {
-    setMediaItems(media);
-  }, []);
-
   const handleFormChange = useCallback((form: BlogFormData | null) => {
     setBlogFormData(form);
   }, []);
-
-  const saveMediaItems = async (postId: string) => {
-    const { data: existingMedia } = await supabase
-      .from('media')
-      .select('id')
-      .eq('entity_type', 'blog_post')
-      .eq('entity_id', postId);
-
-    const existingIds = new Set((existingMedia || []).map((media) => media.id));
-    const currentIds = new Set(mediaItems.filter((media) => media.id).map((media) => media.id as string));
-    const toDelete = [...existingIds].filter((mediaId) => !currentIds.has(mediaId));
-
-    if (toDelete.length > 0) {
-      const { error } = await supabase.from('media').delete().in('id', toDelete);
-      if (error) throw error;
-    }
-
-    for (const item of mediaItems) {
-      if (!item.url) continue;
-
-      const mediaData = {
-        entity_type: 'blog_post' as const,
-        entity_id: postId,
-        media_type: item.media_type,
-        url: item.url,
-        title: item.title || null,
-        description: item.description || null,
-        display_order: item.display_order,
-        created_by: user?.id,
-      };
-
-      if (item.id) {
-        const { error } = await supabase.from('media').update(mediaData).eq('id', item.id);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from('media').insert([mediaData]);
-        if (error) throw error;
-      }
-    }
-  };
 
   const saveForm = async (postId: string, currentBlogFormData: BlogFormData | null) => {
     if (!currentBlogFormData) {
@@ -273,7 +229,7 @@ export default function AdminBlogPostForm() {
     try {
       const postData = {
         title: formData.title,
-        content: htmlToPlainText(formData.content),
+        content: formData.content,
         excerpt: formData.excerpt || null,
         author_name: formData.author_name || null,
         category: formData.category || null,
@@ -313,7 +269,6 @@ export default function AdminBlogPostForm() {
       }
 
       if (postId) {
-        await saveMediaItems(postId);
         await saveForm(postId, currentBlogFormData);
       }
 
@@ -356,7 +311,7 @@ export default function AdminBlogPostForm() {
             {isEditing ? 'Edit Post' : 'Create Post'}
           </h1>
           <p className="text-muted-foreground text-sm">
-            Write standalone blog content, add media, and attach optional reader forms.
+            Write standalone blog content and attach optional reader forms.
           </p>
         </div>
       </div>
@@ -387,28 +342,20 @@ export default function AdminBlogPostForm() {
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="featured_image_url">Featured Image URL</Label>
-            <Input
-              id="featured_image_url"
-              name="featured_image_url"
-              value={formData.featured_image_url}
-              onChange={handleChange}
-              placeholder="https://..."
-              type="url"
-            />
-          </div>
+          <ImageUpload
+            value={formData.featured_image_url}
+            onChange={(url) => setFormData((prev) => ({ ...prev, featured_image_url: url }))}
+            label="Hero Image"
+          />
 
           <div className="space-y-2">
             <Label htmlFor="content">Content *</Label>
-            <Textarea
+            <RichTextEditor
               id="content"
-              name="content"
               value={formData.content}
-              onChange={handleChange}
+              onChange={(content) => setFormData((prev) => ({ ...prev, content }))}
               placeholder="Write your post content here..."
-              rows={12}
-              required
+              minHeightClassName="min-h-[320px]"
             />
           </div>
 
@@ -451,14 +398,6 @@ export default function AdminBlogPostForm() {
                 This keeps the post available in admin. A public blog page can be connected later.
               </p>
             </div>
-          </div>
-
-          <div className="pt-4 border-t border-border">
-            <MediaManager
-              entityType="blog_post"
-              entityId={id}
-              onMediaChange={handleMediaChange}
-            />
           </div>
 
           <div className="pt-4 border-t border-border">

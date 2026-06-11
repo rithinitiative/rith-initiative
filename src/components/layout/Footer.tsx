@@ -6,7 +6,9 @@ const footerLinks = {
   navigation: [
     { href: "/", label: "Home" },
     { href: "/about", label: "About" },
+    { href: "/projects", label: "Projects" },
     { href: "/events", label: "Events" },
+    { href: "/blogs", label: "Blogs" },
     { href: "/shop", label: "Shop" },
     { href: "/donate", label: "Donate" },
     { href: "/contact", label: "Contact" },

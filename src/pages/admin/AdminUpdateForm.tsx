@@ -5,11 +5,11 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Save, Image as ImageIcon, Video, Link as LinkIcon, X, Loader2, Upload } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { RichTextEditor } from '@/components/admin/RichTextEditor';
 
 interface UpdateFormData {
   title: string;
@@ -285,13 +285,12 @@ export default function AdminUpdateForm() {
 
           <div className="space-y-2">
             <Label htmlFor="description">Description</Label>
-            <Textarea
+            <RichTextEditor
               id="description"
-              name="description"
               value={formData.description}
-              onChange={handleChange}
+              onChange={(description) => setFormData((prev) => ({ ...prev, description }))}
               placeholder="A brief description of the update..."
-              rows={3}
+              minHeightClassName="min-h-[150px]"
             />
           </div>
 

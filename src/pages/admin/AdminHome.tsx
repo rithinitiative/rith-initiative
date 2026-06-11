@@ -3,8 +3,9 @@ import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Calendar, Bell, Plus, ArrowRight, FolderKanban } from 'lucide-react';
+import { Calendar, Bell, Plus, ArrowRight, FolderKanban, FileText } from 'lucide-react';
 import { splitEventsByTimeline } from '@/lib/events';
+import { isBlogPostRecord, isProjectRecord } from '@/lib/postClassification';
 
 export default function AdminHome() {
   const [stats, setStats] = useState({
@@ -14,6 +15,8 @@ export default function AdminHome() {
     draftUpdates: 0,
     publishedProjects: 0,
     draftProjects: 0,
+    publishedBlogPosts: 0,
+    draftBlogPosts: 0,
   });
   const [isLoading, setIsLoading] = useState(true);
 
@@ -42,25 +45,25 @@ export default function AdminHome() {
           .eq('is_published', false)
           .eq('is_archived', false);
 
-        const { count: publishedProjects } = await supabase
+        const { data: posts, error: postsError } = await supabase
           .from('blog_posts')
-          .select('*', { count: 'exact', head: true })
-          .eq('is_published', true)
+          .select('title, category, project_slug, is_published, is_archived')
           .eq('is_archived', false);
 
-        const { count: draftProjects } = await supabase
-          .from('blog_posts')
-          .select('*', { count: 'exact', head: true })
-          .eq('is_published', false)
-          .eq('is_archived', false);
+        if (postsError) throw postsError;
+
+        const projectPosts = (posts || []).filter(isProjectRecord);
+        const blogPosts = (posts || []).filter(isBlogPostRecord);
 
         setStats({
           upcomingEvents: upcomingEvents.length,
           pastEvents: pastEvents.length,
           publishedUpdates: publishedUpdates ?? 0,
           draftUpdates: draftUpdates ?? 0,
-          publishedProjects: publishedProjects ?? 0,
-          draftProjects: draftProjects ?? 0,
+          publishedProjects: projectPosts.filter((post) => post.is_published).length,
+          draftProjects: projectPosts.filter((post) => !post.is_published).length,
+          publishedBlogPosts: blogPosts.filter((post) => post.is_published).length,
+          draftBlogPosts: blogPosts.filter((post) => !post.is_published).length,
         });
       } catch (error) {
         console.error('Error fetching stats:', error);
@@ -87,12 +90,12 @@ export default function AdminHome() {
           Welcome to Admin Dashboard
         </h1>
         <p className="text-muted-foreground">
-          Manage events, projects, updates, and website content from here.
+          Manage events, projects, blog posts, updates, and website content from here.
         </p>
       </div>
 
       {/* Quick Actions */}
-      <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
+      <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
         <Card className="border-border/50 shadow-soft">
           <CardHeader className="pb-2">
             <CardTitle className="text-lg flex items-center gap-2">
@@ -111,16 +114,16 @@ export default function AdminHome() {
                 <p className="text-sm text-muted-foreground">Past events</p>
               </div>
             </div>
-            <div className="flex gap-2">
-              <Button variant="hero" size="sm" asChild className="flex-1">
+            <div className="grid gap-2 sm:grid-cols-[1.25fr_1fr]">
+              <Button variant="hero" size="sm" asChild className="w-full min-w-0">
                 <Link to="/admin/events/new">
                   <Plus size={16} />
-                  Add Event
+                  <span>Add Event</span>
                 </Link>
               </Button>
-              <Button variant="outline" size="sm" asChild className="flex-1">
+              <Button variant="outline" size="sm" asChild className="w-full min-w-0">
                 <Link to="/admin/events">
-                  View All
+                  <span>View All</span>
                   <ArrowRight size={16} />
                 </Link>
               </Button>
@@ -146,16 +149,51 @@ export default function AdminHome() {
                 <p className="text-sm text-muted-foreground">Drafts</p>
               </div>
             </div>
-            <div className="flex gap-2">
-              <Button variant="hero" size="sm" asChild className="flex-1">
+            <div className="grid gap-2 sm:grid-cols-[1.25fr_1fr]">
+              <Button variant="hero" size="sm" asChild className="w-full min-w-0">
                 <Link to="/admin/projects/new">
                   <Plus size={16} />
-                  Add Project
+                  <span>Add Project</span>
                 </Link>
               </Button>
-              <Button variant="outline" size="sm" asChild className="flex-1">
+              <Button variant="outline" size="sm" asChild className="w-full min-w-0">
                 <Link to="/admin/projects">
-                  View All
+                  <span>View All</span>
+                  <ArrowRight size={16} />
+                </Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border/50 shadow-soft">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <FileText className="h-5 w-5 text-primary" />
+              Blog Posts
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <p className="text-2xl font-bold text-foreground">{stats.publishedBlogPosts}</p>
+                <p className="text-sm text-muted-foreground">Published</p>
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-foreground">{stats.draftBlogPosts}</p>
+                <p className="text-sm text-muted-foreground">Drafts</p>
+              </div>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-[1.25fr_1fr]">
+              <Button variant="hero" size="sm" asChild className="w-full min-w-0">
+                <Link to="/admin/posts/new">
+                  <Plus size={16} />
+                  <span>Add Blog</span>
+                </Link>
+              </Button>
+              <Button variant="outline" size="sm" asChild className="w-full min-w-0">
+                <Link to="/admin/posts">
+                  <span>View All</span>
                   <ArrowRight size={16} />
                 </Link>
               </Button>
@@ -181,16 +219,16 @@ export default function AdminHome() {
                 <p className="text-sm text-muted-foreground">Drafts</p>
               </div>
             </div>
-            <div className="flex gap-2">
-              <Button variant="hero" size="sm" asChild className="flex-1">
+            <div className="grid gap-2 sm:grid-cols-[1.35fr_1fr]">
+              <Button variant="hero" size="sm" asChild className="w-full min-w-0">
                 <Link to="/admin/updates/new">
                   <Plus size={16} />
-                  Add Update
+                  <span>Add Updates</span>
                 </Link>
               </Button>
-              <Button variant="outline" size="sm" asChild className="flex-1">
+              <Button variant="outline" size="sm" asChild className="w-full min-w-0">
                 <Link to="/admin/updates">
-                  View All
+                  <span>View All</span>
                   <ArrowRight size={16} />
                 </Link>
               </Button>

@@ -12,7 +12,7 @@ interface SimpleMediaItem {
 }
 
 interface SimpleMediaUploadProps {
-  entityType: 'event' | 'blog_post';
+  entityType: 'event';
   entityId?: string;
   onMediaChange?: (media: SimpleMediaItem[]) => void;
 }
@@ -26,21 +26,19 @@ export function SimpleMediaUpload({ entityType, entityId, onMediaChange }: Simpl
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const { toast } = useToast();
 
-  // Fetch existing media when entityId is provided
   useEffect(() => {
     if (entityId) {
       fetchMedia();
     }
   }, [entityId]);
 
-  // Notify parent of changes
   useEffect(() => {
     onMediaChange?.(mediaItems);
   }, [mediaItems, onMediaChange]);
 
   const fetchMedia = async () => {
     if (!entityId) return;
-    
+
     setIsLoading(true);
     try {
       const { data, error } = await supabase
@@ -51,7 +49,7 @@ export function SimpleMediaUpload({ entityType, entityId, onMediaChange }: Simpl
         .order('display_order', { ascending: true });
 
       if (error) throw error;
-      
+
       setMediaItems((data || []).map(item => ({
         id: item.id,
         media_type: item.media_type as 'image' | 'video',
@@ -67,14 +65,14 @@ export function SimpleMediaUpload({ entityType, entityId, onMediaChange }: Simpl
 
   const removeMediaItem = async (index: number) => {
     const item = mediaItems[index];
-    
+
     if (item.id) {
       try {
         const { error } = await supabase
           .from('media')
           .delete()
           .eq('id', item.id);
-        
+
         if (error) throw error;
       } catch (error) {
         console.error('Error deleting media:', error);
@@ -92,7 +90,7 @@ export function SimpleMediaUpload({ entityType, entityId, onMediaChange }: Simpl
 
   const handleMultipleFileUpload = async (files: FileList) => {
     const validFiles: File[] = [];
-    
+
     for (const file of Array.from(files)) {
       if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
         continue;
@@ -127,7 +125,7 @@ export function SimpleMediaUpload({ entityType, entityId, onMediaChange }: Simpl
     for (let i = 0; i < validFiles.length; i++) {
       const file = validFiles[i];
       setUploadCount(prev => ({ ...prev, current: i + 1 }));
-      setUploadProgress(Math.round(((i) / validFiles.length) * 100));
+      setUploadProgress(Math.round((i / validFiles.length) * 100));
 
       try {
         const fileExt = file.name.split('.').pop();
@@ -160,7 +158,7 @@ export function SimpleMediaUpload({ entityType, entityId, onMediaChange }: Simpl
     }
 
     setUploadProgress(100);
-    
+
     if (newMediaItems.length > 0) {
       setMediaItems(prev => [...prev, ...newMediaItems]);
       toast({
@@ -176,7 +174,7 @@ export function SimpleMediaUpload({ entityType, entityId, onMediaChange }: Simpl
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       handleMultipleFileUpload(e.dataTransfer.files);
     }
@@ -201,18 +199,15 @@ export function SimpleMediaUpload({ entityType, entityId, onMediaChange }: Simpl
         <span className="text-base font-medium">Event Media</span>
       </div>
 
-      {/* Upload Area */}
       <div
         onClick={() => !isUploading && fileInputRef.current?.click()}
         onDrop={handleDrop}
         onDragOver={handleDragOver}
-        className={`
-          border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer
-          ${isUploading 
-            ? 'border-primary bg-primary/5 cursor-wait' 
+        className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer ${
+          isUploading
+            ? 'border-primary bg-primary/5 cursor-wait'
             : 'border-border hover:border-primary/50 hover:bg-secondary/30'
-          }
-        `}
+        }`}
       >
         {isUploading ? (
           <div className="space-y-3">
@@ -231,7 +226,7 @@ export function SimpleMediaUpload({ entityType, entityId, onMediaChange }: Simpl
               Drop photos & videos here or click to browse
             </p>
             <p className="text-xs text-muted-foreground mt-1">
-              Select multiple files at once • Max 50MB per file
+              Select multiple files at once. Max 50MB per file.
             </p>
           </>
         )}
@@ -251,9 +246,8 @@ export function SimpleMediaUpload({ entityType, entityId, onMediaChange }: Simpl
         className="hidden"
       />
 
-      {/* Media Grid */}
       {mediaItems.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
           {mediaItems.map((item, index) => (
             <div key={item.id || index} className="relative group aspect-square">
               {item.media_type === 'video' ? (
@@ -264,12 +258,11 @@ export function SimpleMediaUpload({ entityType, entityId, onMediaChange }: Simpl
               ) : (
                 <img
                   src={item.url}
-                  alt={`Media ${index + 1}`}
+                  alt={`Event media ${index + 1}`}
                   className="w-full h-full object-cover rounded-lg border border-border"
                 />
               )}
-              
-              {/* Type indicator */}
+
               <div className="absolute bottom-2 left-2 p-1 rounded bg-background/80 backdrop-blur-sm">
                 {item.media_type === 'video' ? (
                   <Video size={14} className="text-foreground" />
@@ -278,7 +271,6 @@ export function SimpleMediaUpload({ entityType, entityId, onMediaChange }: Simpl
                 )}
               </div>
 
-              {/* Remove button */}
               <button
                 type="button"
                 onClick={() => removeMediaItem(index)}
@@ -289,7 +281,6 @@ export function SimpleMediaUpload({ entityType, entityId, onMediaChange }: Simpl
             </div>
           ))}
 
-          {/* Add more button */}
           <div
             onClick={() => fileInputRef.current?.click()}
             className="aspect-square border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center gap-1 cursor-pointer hover:border-primary/50 hover:bg-secondary/30 transition-colors"

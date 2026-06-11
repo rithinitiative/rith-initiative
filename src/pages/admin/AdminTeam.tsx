@@ -5,7 +5,6 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -25,7 +24,9 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { ImageUpload } from '@/components/admin/ImageUpload';
+import { RichTextEditor } from '@/components/admin/RichTextEditor';
 import { ArrowDown, ArrowUp, Loader2, Pencil, Trash2, UserRound } from 'lucide-react';
+import { htmlToPlainText } from '@/lib/richText';
 
 type TeamSection = 'board' | 'advisory';
 
@@ -427,7 +428,7 @@ export default function AdminTeam() {
                   </p>
                   {member.bio && (
                     <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">
-                      {member.bio}
+                      {htmlToPlainText(member.bio)}
                     </p>
                   )}
                   <p className="text-xs text-muted-foreground/80 mt-1">
@@ -557,12 +558,12 @@ export default function AdminTeam() {
 
         <div className="space-y-2">
           <Label htmlFor="member-bio">Bio / Description</Label>
-          <Textarea
+          <RichTextEditor
             id="member-bio"
             value={formState.bio}
-            onChange={(e) => setFormState((prev) => ({ ...prev, bio: e.target.value }))}
+            onChange={(bio) => setFormState((prev) => ({ ...prev, bio }))}
             placeholder="Short bio or description shown below this team member."
-            rows={4}
+            minHeightClassName="min-h-[160px]"
           />
           {!isBioColumnAvailable && (
             <p className="text-xs text-amber-600">

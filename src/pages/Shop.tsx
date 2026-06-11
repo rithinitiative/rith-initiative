@@ -9,6 +9,7 @@ import { ShoppingBag, ExternalLink, X } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { SITE_URL, createBreadcrumbSchema, createWebPageSchema } from "@/lib/seo";
+import { htmlToPlainText, sanitizeRichText } from "@/lib/richText";
 
 interface ShopItem {
   id: string;
@@ -63,7 +64,7 @@ export default function Shop() {
     "@context": "https://schema.org",
     "@type": "Product",
     name: item.title,
-    ...(item.description ? { description: item.description } : {}),
+    ...(item.description ? { description: htmlToPlainText(item.description) } : {}),
     ...(item.image_url ? { image: item.image_url } : {}),
     ...(item.category ? { category: item.category } : {}),
     offers: {
@@ -165,9 +166,10 @@ export default function Shop() {
                         {item.title}
                       </h3>
                       {item.description && (
-                        <p className="text-sm text-muted-foreground leading-relaxed mb-4 line-clamp-3 flex-1">
-                          {item.description}
-                        </p>
+                        <div
+                          className="mb-4 line-clamp-3 flex-1 text-sm leading-relaxed text-muted-foreground [&_a]:font-medium [&_a]:text-primary [&_a]:underline [&_a]:underline-offset-2 [&_p]:mb-2 [&_p:last-child]:mb-0"
+                          dangerouslySetInnerHTML={{ __html: sanitizeRichText(item.description) }}
+                        />
                       )}
                       <div className="flex items-center justify-between mt-auto pt-3 border-t border-border/30">
                         <span className="text-lg font-semibold text-foreground">
@@ -234,9 +236,10 @@ export default function Shop() {
                 <hr className="border-border/50 mb-5" />
 
                 {selectedItem.description ? (
-                  <p className="text-sm text-muted-foreground leading-relaxed mb-6 flex-1">
-                    {selectedItem.description}
-                  </p>
+                  <div
+                    className="mb-6 flex-1 text-sm leading-relaxed text-muted-foreground [&_a]:font-medium [&_a]:text-primary [&_a]:underline [&_a]:underline-offset-2 [&_h2]:font-heading [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:text-foreground [&_h3]:font-heading [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:text-foreground [&_ol]:my-3 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-3 [&_p:last-child]:mb-0 [&_ul]:my-3 [&_ul]:list-disc [&_ul]:pl-5"
+                    dangerouslySetInnerHTML={{ __html: sanitizeRichText(selectedItem.description) }}
+                  />
                 ) : (
                   <div className="flex-1" />
                 )}

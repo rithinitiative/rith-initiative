@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -6,10 +6,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Bold, Italic, Link as LinkIcon, List, ListOrdered, Plus, Save, Trash2, Underline } from 'lucide-react';
+import { ArrowLeft, Plus, Save, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { ImageUpload } from '@/components/admin/ImageUpload';
 import { SimpleMediaUpload, SimpleMediaItem } from '@/components/admin/SimpleMediaUpload';
+import { RichTextEditor } from '@/components/admin/RichTextEditor';
 import {
   EventRegistrationLink,
   parseEventRegistrationLinks,
@@ -35,7 +36,6 @@ export default function AdminEventForm() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
-  const descriptionRef = useRef<HTMLDivElement | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(isEditing);
   const [mediaItems, setMediaItems] = useState<SimpleMediaItem[]>([]);
@@ -52,33 +52,6 @@ export default function AdminEventForm() {
     capacity: '',
     featured_image_url: '',
   });
-
-  const escapeHtml = (value: string) =>
-    value
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
-
-  const plainTextToHtml = (value: string) =>
-    value
-      .split(/\n{2,}/)
-      .map((paragraph) => `<p>${escapeHtml(paragraph).replace(/\n/g, '<br />')}</p>`)
-      .join('');
-
-  const markdownToHtml = (value: string) => {
-    const escaped = plainTextToHtml(value)
-      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-      .replace(/\*([^*]+)\*/g, '<em>$1</em>')
-      .replace(/__([^_]+)__/g, '<u>$1</u>')
-      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
-
-    return escaped;
-  };
-
-  const getEditableDescription = (value: string) =>
-    /<\/?[a-z][\s\S]*>/i.test(value) ? value : markdownToHtml(value);
 
   useEffect(() => {
     if (isEditing && id) {
@@ -129,36 +102,6 @@ export default function AdminEventForm() {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const updateDescriptionFromEditor = () => {
-    const html = descriptionRef.current?.innerHTML || '';
-    setFormData((prev) => ({ ...prev, description: html }));
-  };
-
-  const applyDescriptionFormat = (format: 'bold' | 'italic' | 'underline' | 'bullet' | 'numbered' | 'link') => {
-    const textarea = descriptionRef.current;
-    if (!textarea) return;
-
-    textarea.focus();
-
-    if (format === 'link') {
-      const url = window.prompt('Enter the link URL');
-      if (!url) return;
-      document.execCommand('createLink', false, url);
-    } else {
-      const commandByFormat = {
-        bold: 'bold',
-        italic: 'italic',
-        underline: 'underline',
-        bullet: 'insertUnorderedList',
-        numbered: 'insertOrderedList',
-      } as const;
-
-      document.execCommand(commandByFormat[format]);
-    }
-
-    updateDescriptionFromEditor();
-  };
-
   const handleRegistrationLinkChange = (
     index: number,
     field: keyof EventRegistrationLink,
@@ -201,7 +144,6 @@ export default function AdminEventForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const currentDescription = descriptionRef.current?.innerHTML || formData.description;
 
     if (!formData.title || !formData.start_date) {
       toast({
@@ -235,7 +177,7 @@ export default function AdminEventForm() {
     try {
       const eventData = {
         title: formData.title,
-        description: currentDescription || null,
+        description: formData.description || null,
         start_date: dateToISO(formData.start_date),
         end_date: formData.end_date ? dateToISO(formData.end_date) : null,
         time: formData.time || null,
@@ -267,25 +209,22 @@ export default function AdminEventForm() {
         eventId = data.id;
       }
 
-      // Save media items
       if (eventId) {
-        // Get existing media to compare
         const { data: existingMedia } = await supabase
           .from('media')
           .select('id')
           .eq('entity_type', 'event')
           .eq('entity_id', eventId);
 
-        const existingIds = new Set((existingMedia || []).map(m => m.id));
-        const currentIds = new Set(mediaItems.filter(m => m.id).map(m => m.id));
+        const existingIds = new Set((existingMedia || []).map((media) => media.id));
+        const currentIds = new Set(mediaItems.filter((media) => media.id).map((media) => media.id as string));
+        const toDelete = [...existingIds].filter((mediaId) => !currentIds.has(mediaId));
 
-        // Delete removed media
-        const toDelete = [...existingIds].filter(id => !currentIds.has(id));
         if (toDelete.length > 0) {
-          await supabase.from('media').delete().in('id', toDelete);
+          const { error } = await supabase.from('media').delete().in('id', toDelete);
+          if (error) throw error;
         }
 
-        // Insert/update media items
         for (const item of mediaItems) {
           if (!item.url) continue;
 
@@ -301,12 +240,14 @@ export default function AdminEventForm() {
           };
 
           if (item.id) {
-            await supabase
+            const { error } = await supabase
               .from('media')
               .update(mediaData)
               .eq('id', item.id);
+            if (error) throw error;
           } else {
-            await supabase.from('media').insert([mediaData]);
+            const { error } = await supabase.from('media').insert([mediaData]);
+            if (error) throw error;
           }
         }
       }
@@ -371,46 +312,18 @@ export default function AdminEventForm() {
 
           <div className="space-y-2">
             <Label htmlFor="description">Description</Label>
-            <div className="flex flex-wrap gap-2 rounded-md border border-border bg-secondary/20 p-2">
-              <Button type="button" variant="ghost" size="sm" onClick={() => applyDescriptionFormat('bold')} aria-label="Bold selected text">
-                <Bold size={16} />
-              </Button>
-              <Button type="button" variant="ghost" size="sm" onClick={() => applyDescriptionFormat('italic')} aria-label="Italicize selected text">
-                <Italic size={16} />
-              </Button>
-              <Button type="button" variant="ghost" size="sm" onClick={() => applyDescriptionFormat('underline')} aria-label="Underline selected text">
-                <Underline size={16} />
-              </Button>
-              <Button type="button" variant="ghost" size="sm" onClick={() => applyDescriptionFormat('bullet')} aria-label="Create bullet list">
-                <List size={16} />
-              </Button>
-              <Button type="button" variant="ghost" size="sm" onClick={() => applyDescriptionFormat('numbered')} aria-label="Create numbered list">
-                <ListOrdered size={16} />
-              </Button>
-              <Button type="button" variant="ghost" size="sm" onClick={() => applyDescriptionFormat('link')} aria-label="Add link">
-                <LinkIcon size={16} />
-              </Button>
-            </div>
-            <div
-              ref={descriptionRef}
+            <RichTextEditor
               id="description"
-              contentEditable
-              role="textbox"
-              aria-multiline="true"
-              className="min-h-[220px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm leading-relaxed ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 [&_a]:font-medium [&_a]:text-primary [&_a]:underline [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-2 [&_p:last-child]:mb-0 [&_ul]:list-disc [&_ul]:pl-5"
-              dangerouslySetInnerHTML={{ __html: getEditableDescription(formData.description) }}
-              onBlur={updateDescriptionFromEditor}
+              value={formData.description}
+              onChange={(description) => setFormData((prev) => ({ ...prev, description }))}
+              placeholder="A full description of the event..."
             />
-            <p className="text-xs text-muted-foreground">
-              Select text and use the formatting buttons. Blank lines, lists, bold, italics, underlines, and links will show on the public event details.
-            </p>
           </div>
 
-          {/* Featured Image Upload */}
           <ImageUpload
             value={formData.featured_image_url}
             onChange={(url) => setFormData(prev => ({ ...prev, featured_image_url: url }))}
-            label="Featured Image (Hero Image)"
+            label="Hero Image"
           />
 
           <div className="grid sm:grid-cols-2 gap-4">
@@ -546,7 +459,6 @@ export default function AdminEventForm() {
             />
           </div>
 
-          {/* Additional Media Section */}
           <div className="pt-4 border-t border-border">
             <SimpleMediaUpload
               entityType="event"

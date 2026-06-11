@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -7,9 +7,9 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Bold, Italic, Link as LinkIcon, List, ListOrdered, Save, Underline } from 'lucide-react';
+import { ArrowLeft, Save } from 'lucide-react';
 import { ImageUpload } from '@/components/admin/ImageUpload';
-import { SimpleMediaItem, SimpleMediaUpload } from '@/components/admin/SimpleMediaUpload';
+import { RichTextEditor } from '@/components/admin/RichTextEditor';
 import { createProjectSlug } from '@/lib/projects';
 import { getEditableRichText } from '@/lib/richText';
 
@@ -27,10 +27,8 @@ export default function AdminProjectForm() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const contentRef = useRef<HTMLDivElement | null>(null);
   const [isFetching, setIsFetching] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [mediaItems, setMediaItems] = useState<SimpleMediaItem[]>([]);
   const [formData, setFormData] = useState<ProjectFormData>({
     title: '',
     slug: '',
@@ -60,17 +58,11 @@ export default function AdminProjectForm() {
           title: data.title || '',
           slug: data.project_slug || createProjectSlug(data.title || ''),
           summary: data.project_summary || '',
-          content: nextContent,
+          content: getEditableRichText(nextContent),
           featuredImageUrl: data.project_featured_image_url || data.featured_image_url || '',
           isPublished: data.project_is_published !== false,
           displayOrder: String(data.project_display_order ?? 0),
         });
-
-        window.setTimeout(() => {
-          if (contentRef.current) {
-            contentRef.current.innerHTML = getEditableRichText(nextContent);
-          }
-        }, 0);
       } catch (error) {
         console.error('Error loading project:', error);
         toast({
@@ -86,36 +78,6 @@ export default function AdminProjectForm() {
 
     fetchProject();
   }, [id, navigate, toast]);
-
-  const updateContentFromEditor = () => {
-    const html = contentRef.current?.innerHTML || '';
-    setFormData((prev) => ({ ...prev, content: html }));
-  };
-
-  const applyContentFormat = (format: 'bold' | 'italic' | 'underline' | 'bullet' | 'numbered' | 'link') => {
-    const editor = contentRef.current;
-    if (!editor) return;
-
-    editor.focus();
-
-    if (format === 'link') {
-      const url = window.prompt('Enter the link URL');
-      if (!url) return;
-      document.execCommand('createLink', false, url);
-    } else {
-      const commandByFormat = {
-        bold: 'bold',
-        italic: 'italic',
-        underline: 'underline',
-        bullet: 'insertUnorderedList',
-        numbered: 'insertOrderedList',
-      } as const;
-
-      document.execCommand(commandByFormat[format]);
-    }
-
-    updateContentFromEditor();
-  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -148,7 +110,7 @@ export default function AdminProjectForm() {
           is_project: true,
           project_slug: slug,
           project_summary: formData.summary.trim() || null,
-          project_content: contentRef.current?.innerHTML || formData.content || null,
+          project_content: formData.content || null,
           project_featured_image_url: formData.featuredImageUrl.trim() || null,
           project_is_published: formData.isPublished,
           project_display_order: displayOrder,
@@ -237,38 +199,16 @@ export default function AdminProjectForm() {
         <ImageUpload
           value={formData.featuredImageUrl}
           onChange={(url) => setFormData((prev) => ({ ...prev, featuredImageUrl: url }))}
-          label="Project Hero Image"
+          label="Hero Image"
         />
 
         <div className="space-y-2">
           <Label>Project Page Content</Label>
-          <div className="flex flex-wrap gap-2 rounded-md border border-border bg-secondary/20 p-2">
-            <Button type="button" variant="ghost" size="sm" onClick={() => applyContentFormat('bold')} aria-label="Bold selected text">
-              <Bold size={16} />
-            </Button>
-            <Button type="button" variant="ghost" size="sm" onClick={() => applyContentFormat('italic')} aria-label="Italicize selected text">
-              <Italic size={16} />
-            </Button>
-            <Button type="button" variant="ghost" size="sm" onClick={() => applyContentFormat('underline')} aria-label="Underline selected text">
-              <Underline size={16} />
-            </Button>
-            <Button type="button" variant="ghost" size="sm" onClick={() => applyContentFormat('bullet')} aria-label="Create bullet list">
-              <List size={16} />
-            </Button>
-            <Button type="button" variant="ghost" size="sm" onClick={() => applyContentFormat('numbered')} aria-label="Create numbered list">
-              <ListOrdered size={16} />
-            </Button>
-            <Button type="button" variant="ghost" size="sm" onClick={() => applyContentFormat('link')} aria-label="Add link">
-              <LinkIcon size={16} />
-            </Button>
-          </div>
-          <div
-            ref={contentRef}
-            contentEditable
-            role="textbox"
-            aria-multiline="true"
-            className="min-h-[300px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm leading-relaxed ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 [&_a]:font-medium [&_a]:text-primary [&_a]:underline [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-2 [&_p:last-child]:mb-0 [&_ul]:list-disc [&_ul]:pl-5"
-            onBlur={updateContentFromEditor}
+          <RichTextEditor
+            value={formData.content}
+            onChange={(content) => setFormData((prev) => ({ ...prev, content }))}
+            placeholder="Write the full project page content here..."
+            minHeightClassName="min-h-[300px]"
           />
         </div>
 
@@ -297,15 +237,6 @@ export default function AdminProjectForm() {
               onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, isPublished: checked }))}
             />
           </div>
-        </div>
-
-        <div className="border-t border-border pt-4">
-          <SimpleMediaUpload entityType="event" entityId={id} onMediaChange={setMediaItems} />
-          {mediaItems.length > 0 && (
-            <p className="mt-2 text-xs text-muted-foreground">
-              These media items will appear in the project gallery and still remain attached to the event.
-            </p>
-          )}
         </div>
 
         <div className="flex flex-wrap gap-3">

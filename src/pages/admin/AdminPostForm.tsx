@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -10,9 +10,9 @@ import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, GripVertical, Headphones, Plus, Save, Trash2, Upload } from 'lucide-react';
 import { ImageUpload } from '@/components/admin/ImageUpload';
-import { MediaManager, MediaItem } from '@/components/admin/MediaManager';
+import { RichTextEditor } from '@/components/admin/RichTextEditor';
 import { createProjectSlug } from '@/lib/projects';
-import { htmlToPlainText } from '@/lib/richText';
+import { getEditableRichText } from '@/lib/richText';
 
 interface ProjectFormData {
   title: string;
@@ -28,6 +28,7 @@ interface ProjectFormData {
 interface InterviewFormData {
   id?: string;
   title: string;
+  category: string;
   interviewee_name: string;
   interviewee_description: string;
   portrait_url: string;
@@ -39,6 +40,7 @@ interface InterviewFormData {
 
 const emptyInterview = (displayOrder: number): InterviewFormData => ({
   title: '',
+  category: '',
   interviewee_name: '',
   interviewee_description: '',
   portrait_url: '',
@@ -56,8 +58,9 @@ export default function AdminPostForm() {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(isEditing);
-  const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
   const [interviews, setInterviews] = useState<InterviewFormData[]>([]);
+  const [interviewCategories, setInterviewCategories] = useState<string[]>([]);
+  const [newInterviewCategory, setNewInterviewCategory] = useState('');
   const [deletedInterviewIds, setDeletedInterviewIds] = useState<string[]>([]);
   const [uploadingInterviewIndex, setUploadingInterviewIndex] = useState<number | null>(null);
   const audioInputRefs = useRef<Record<number, HTMLInputElement | null>>({});
@@ -97,7 +100,7 @@ export default function AdminPostForm() {
         if (project) {
           setFormData({
             title: project.title || '',
-            content: htmlToPlainText(project.content || ''),
+            content: getEditableRichText(project.content || ''),
             excerpt: project.excerpt || '',
             category: project.category || 'Project',
             featured_image_url: project.featured_image_url || '',
@@ -110,6 +113,7 @@ export default function AdminPostForm() {
         setInterviews((interviewData || []).map((interview) => ({
           id: interview.id,
           title: interview.title || '',
+          category: interview.category || '',
           interviewee_name: interview.interviewee_name || '',
           interviewee_description: interview.interviewee_description || '',
           portrait_url: interview.portrait_url || '',
@@ -118,6 +122,9 @@ export default function AdminPostForm() {
           display_order: interview.display_order || 0,
           is_published: interview.is_published,
         })));
+        setInterviewCategories(Array.from(new Set((interviewData || [])
+          .map((interview) => (interview.category || '').trim())
+          .filter(Boolean))));
       } catch (error) {
         console.error('Error fetching project:', error);
         toast({
@@ -140,13 +147,28 @@ export default function AdminPostForm() {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleMediaChange = useCallback((media: MediaItem[]) => {
-    setMediaItems(media);
-  }, []);
-
   const updateInterview = (index: number, updates: Partial<InterviewFormData>) => {
     setInterviews((prev) => prev.map((interview, i) => (
       i === index ? { ...interview, ...updates } : interview
+    )));
+  };
+
+  const addInterviewCategory = () => {
+    const category = newInterviewCategory.trim();
+    if (!category) return;
+
+    setInterviewCategories((prev) => (
+      prev.some((item) => item.toLowerCase() === category.toLowerCase())
+        ? prev
+        : [...prev, category]
+    ));
+    setNewInterviewCategory('');
+  };
+
+  const removeInterviewCategory = (category: string) => {
+    setInterviewCategories((prev) => prev.filter((item) => item !== category));
+    setInterviews((prev) => prev.map((interview) => (
+      interview.category === category ? { ...interview, category: '' } : interview
     )));
   };
 
@@ -229,46 +251,6 @@ export default function AdminPostForm() {
     }
   };
 
-  const saveMediaItems = async (projectId: string) => {
-    const { data: existingMedia } = await supabase
-      .from('media')
-      .select('id')
-      .eq('entity_type', 'blog_post')
-      .eq('entity_id', projectId);
-
-    const existingIds = new Set((existingMedia || []).map((media) => media.id));
-    const currentIds = new Set(mediaItems.filter((media) => media.id).map((media) => media.id as string));
-    const toDelete = [...existingIds].filter((mediaId) => !currentIds.has(mediaId));
-
-    if (toDelete.length > 0) {
-      const { error } = await supabase.from('media').delete().in('id', toDelete);
-      if (error) throw error;
-    }
-
-    for (const item of mediaItems) {
-      if (!item.url) continue;
-
-      const mediaData = {
-        entity_type: 'blog_post' as const,
-        entity_id: projectId,
-        media_type: item.media_type,
-        url: item.url,
-        title: item.title || null,
-        description: item.description || null,
-        display_order: item.display_order,
-        created_by: user?.id,
-      };
-
-      if (item.id) {
-        const { error } = await supabase.from('media').update(mediaData).eq('id', item.id);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from('media').insert([mediaData]);
-        if (error) throw error;
-      }
-    }
-  };
-
   const saveInterviews = async (projectId: string) => {
     if (deletedInterviewIds.length > 0) {
       const { error } = await supabase
@@ -284,6 +266,7 @@ export default function AdminPostForm() {
       const interviewData = {
         project_id: projectId,
         title: interview.title.trim() || `Interview ${index + 1}`,
+        category: interview.category.trim() || null,
         interviewee_name: interview.interviewee_name.trim() || null,
         interviewee_description: interview.interviewee_description.trim() || null,
         portrait_url: interview.portrait_url || null,
@@ -343,7 +326,7 @@ export default function AdminPostForm() {
 
       const projectData = {
         title: formData.title,
-        content: htmlToPlainText(formData.content),
+        content: formData.content,
         excerpt: formData.excerpt || null,
         author_name: null,
         category: formData.category || 'Project',
@@ -376,7 +359,6 @@ export default function AdminPostForm() {
       }
 
       if (projectId) {
-        await saveMediaItems(projectId);
         await saveInterviews(projectId);
       }
 
@@ -472,30 +454,17 @@ export default function AdminPostForm() {
           <ImageUpload
             value={formData.featured_image_url}
             onChange={(url) => setFormData((prev) => ({ ...prev, featured_image_url: url }))}
-            label="Project Cover Image"
+            label="Hero Image"
           />
 
           <div className="space-y-2">
             <Label htmlFor="content">Main Project Description *</Label>
-            <Textarea
+            <RichTextEditor
               id="content"
-              name="content"
               value={formData.content}
-              onChange={handleChange}
+              onChange={(content) => setFormData((prev) => ({ ...prev, content }))}
               placeholder="Write the full project description here..."
-              rows={12}
-              required
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="category">Category</Label>
-            <Input
-              id="category"
-              name="category"
-              value={formData.category}
-              onChange={handleChange}
-              placeholder="Project"
+              minHeightClassName="min-h-[320px]"
             />
           </div>
 
@@ -520,14 +489,6 @@ export default function AdminPostForm() {
           </div>
         </section>
 
-        <section className="rounded-lg border border-border/50 bg-card p-5 shadow-soft">
-          <MediaManager
-            entityType="blog_post"
-            entityId={id}
-            onMediaChange={handleMediaChange}
-          />
-        </section>
-
         <section className="space-y-4 rounded-lg border border-border/50 bg-card p-5 shadow-soft">
           <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
             <div>
@@ -540,6 +501,45 @@ export default function AdminPostForm() {
               <Plus size={16} />
               Add Interview
             </Button>
+          </div>
+
+          <div className="rounded-lg border border-border/50 bg-secondary/20 p-4">
+            <Label>Interview Categories</Label>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Create categories visitors can use to browse interviews in this project.
+            </p>
+            <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+              <Input
+                value={newInterviewCategory}
+                onChange={(e) => setNewInterviewCategory(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    addInterviewCategory();
+                  }
+                }}
+                placeholder="e.g., Weavers, Elders, Artists"
+              />
+              <Button type="button" variant="outline" onClick={addInterviewCategory}>
+                <Plus size={16} />
+                Add Category
+              </Button>
+            </div>
+            {interviewCategories.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {interviewCategories.map((category) => (
+                  <button
+                    key={category}
+                    type="button"
+                    onClick={() => removeInterviewCategory(category)}
+                    className="rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary transition-colors hover:bg-destructive/10 hover:text-destructive"
+                    title="Remove category"
+                  >
+                    {category}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {interviews.length === 0 ? (
@@ -597,6 +597,22 @@ export default function AdminPostForm() {
                       />
                     </div>
                     <div className="space-y-2">
+                      <Label>Category</Label>
+                      <select
+                        value={interview.category}
+                        onChange={(e) => updateInterview(index, { category: e.target.value })}
+                        className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                      >
+                        <option value="">No category</option>
+                        {interviewCategories.map((category) => (
+                          <option key={category} value={category}>{category}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
                       <Label>Interviewee Name</Label>
                       <Input
                         value={interview.interviewee_name}
@@ -614,11 +630,11 @@ export default function AdminPostForm() {
 
                   <div className="space-y-2">
                     <Label>Interviewee Description</Label>
-                    <Textarea
+                    <RichTextEditor
                       value={interview.interviewee_description}
-                      onChange={(e) => updateInterview(index, { interviewee_description: e.target.value })}
+                      onChange={(interviewee_description) => updateInterview(index, { interviewee_description })}
                       placeholder="Short bio or context about the person being interviewed."
-                      rows={3}
+                      minHeightClassName="min-h-[150px]"
                     />
                   </div>
 

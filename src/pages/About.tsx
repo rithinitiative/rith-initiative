@@ -271,18 +271,15 @@ export default function About() {
                 <SectionHeading title="Our Mission" subtitle="Building bridges through culture, art, and community" />
                 <div className="space-y-6 text-muted-foreground leading-relaxed">
                   <p>
-                    Rith Initiative exists to explore, share, and grow Indian culture through the arts. We see
-                    creativity as a bridge that connects generations and geographies, fostering understanding and a
-                    deeper sense of belonging.
+                    Rith Initiative exists to explore, share, and grow Indian culture through the arts — creating
+                    spaces where the wisdom of tradition meets the energy of contemporary expression.
                   </p>
                   <p>
-                    Our mission is to create spaces where Indian traditions meet contemporary expression, inviting
-                    artists and audiences of all ages to engage with heritage with openness and curiosity.
+                    We work through exhibitions, performances, storytelling, and community engagement, inviting artists
+                    and audiences of all ages to engage with heritage with openness and curiosity.
                   </p>
                   <p>
-                    Through exhibitions, performances, storytelling, and community engagement, we spark dialogue,
-                    nurture collaboration, and celebrate the many ways culture continues to evolve — rhythm by rhythm,
-                    story by story.
+                    Our belief is simple: culture thrives not when it is preserved, but when it is lived.
                   </p>
                 </div>
               </div>
@@ -318,23 +315,21 @@ export default function About() {
             </ScrollReveal>
             <ScrollReveal variant="slide-right" className="order-1 lg:order-2">
               <div>
-                <SectionHeading title="Our Story" subtitle="From a small gathering to a thriving community" />
+                <SectionHeading title="What We Believe" subtitle="From wisdom to wonder, rhythm by rhythm" />
                 <div className="space-y-6 text-muted-foreground leading-relaxed">
                   <p>
-                    We believe culture is not static. It is alive, adapting, growing, traveling, and constantly being
-                    reinterpreted. The greatest threat to culture is not change, but disconnection: when future
-                    generations feel embarrassed by it, or abandon it altogether in indifference.
+                    Culture is not static. It is alive — adapting, traveling, constantly being reinterpreted. The
+                    greatest threat to culture is not change, but disconnection: when future generations feel
+                    embarrassed by it, or abandon it in indifference.
                   </p>
                   <p>
                     Our work is to ensure the opposite. We do not seek to protect culture from change, but to evolve it
-                    so compellingly and beautifully that it thrives. We want the next generation to naturally care for
-                    it, not out of duty, but out of joy and curiosity. What the young needs are bridges that connect
-                    what their grandmothers knew with what today's world needs to know.
+                    so compellingly that it thrives. We want the next generation to care for it not out of duty, but out
+                    of joy and curiosity.
                   </p>
                   <p>
-                    Founded in Richmond, Virginia, by artists Ruchi Gupta and Prabir Mehta, Rith Initiative intents to
-                    grow as a platform for intergenerational learning, artistic collaboration, and the celebration of
-                    heritage in all its evolving forms. For us, culture is not about survival. It is about vitality.
+                    What the young need are bridges, between what their grandmothers knew and what today’s world needs
+                    to know. Between wisdom and wonder. Rhythm by rhythm, story by story.
                   </p>
                 </div>
               </div>

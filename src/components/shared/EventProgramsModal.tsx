@@ -147,7 +147,7 @@ function ProgramRegistrationForm({
 export function EventProgramsModal({ open, onOpenChange, eventTitle, programs }: EventProgramsModalProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{eventTitle} — Programs</DialogTitle>
           <DialogDescription>
@@ -158,16 +158,20 @@ export function EventProgramsModal({ open, onOpenChange, eventTitle, programs }:
         <div className="mt-2 space-y-8">
           {programs.map((program) => (
             <div key={program.id} className="rounded-lg border border-border/60 bg-card p-4 sm:p-6">
-              <div className="grid gap-5 sm:grid-cols-[minmax(0,220px)_minmax(0,1fr)]">
-                <div className="overflow-hidden rounded-md border border-border/50 bg-secondary/30">
-                  {program.poster_url ? (
-                    <img src={program.poster_url} alt={`${program.title} poster`} className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="flex aspect-[3/4] items-center justify-center text-muted-foreground/60">
-                      <ImageIcon className="h-10 w-10" />
-                    </div>
-                  )}
-                </div>
+              <div className="space-y-5">
+                {program.poster_url ? (
+                  <div className="flex justify-center">
+                    <img
+                      src={program.poster_url}
+                      alt={`${program.title} poster`}
+                      className="max-h-[70vh] w-auto max-w-full rounded-md border border-border/50 object-contain"
+                    />
+                  </div>
+                ) : (
+                  <div className="mx-auto flex aspect-[3/4] w-full max-w-[220px] items-center justify-center rounded-md border border-border/50 bg-secondary/30 text-muted-foreground/60">
+                    <ImageIcon className="h-10 w-10" />
+                  </div>
+                )}
 
                 <div className="min-w-0">
                   <h3 className="font-heading text-xl font-semibold text-foreground">{program.title}</h3>

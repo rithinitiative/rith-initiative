@@ -238,8 +238,56 @@ export type Database = {
         }
         Relationships: []
       }
+      nav_items: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          display_order: number
+          id: string
+          is_published: boolean
+          label: string
+          opens_new_tab: boolean
+          parent_id: string | null
+          updated_at: string
+          url: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          display_order?: number
+          id?: string
+          is_published?: boolean
+          label: string
+          opens_new_tab?: boolean
+          parent_id?: string | null
+          updated_at?: string
+          url?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          display_order?: number
+          id?: string
+          is_published?: boolean
+          label?: string
+          opens_new_tab?: boolean
+          parent_id?: string | null
+          updated_at?: string
+          url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nav_items_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "nav_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_programs: {
         Row: {
+          capacity: number | null
           created_at: string
           created_by: string | null
           description: string | null
@@ -249,11 +297,13 @@ export type Database = {
           is_published: boolean
           poster_url: string | null
           registration_enabled: boolean
+          registration_mode: string
           registration_url: string | null
           title: string
           updated_at: string
         }
         Insert: {
+          capacity?: number | null
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -263,11 +313,13 @@ export type Database = {
           is_published?: boolean
           poster_url?: string | null
           registration_enabled?: boolean
+          registration_mode?: string
           registration_url?: string | null
           title: string
           updated_at?: string
         }
         Update: {
+          capacity?: number | null
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -277,6 +329,7 @@ export type Database = {
           is_published?: boolean
           poster_url?: string | null
           registration_enabled?: boolean
+          registration_mode?: string
           registration_url?: string | null
           title?: string
           updated_at?: string
@@ -293,30 +346,36 @@ export type Database = {
       }
       event_registrations: {
         Row: {
+          adults: number
           created_at: string
           email: string
           event_id: string
           id: string
+          minors: number
           name: string
           notes: string | null
           phone: string | null
           program_id: string
         }
         Insert: {
+          adults?: number
           created_at?: string
           email: string
           event_id: string
           id?: string
+          minors?: number
           name: string
           notes?: string | null
           phone?: string | null
           program_id: string
         }
         Update: {
+          adults?: number
           created_at?: string
           email?: string
           event_id?: string
           id?: string
+          minors?: number
           name?: string
           notes?: string | null
           phone?: string | null
@@ -915,6 +974,14 @@ export type Database = {
           email: string
           id: string
           invited_by_email: string | null
+        }[]
+      }
+      get_program_availability: {
+        Args: { p_program_ids: string[] }
+        Returns: {
+          program_id: string
+          registered: number
+          capacity: number | null
         }[]
       }
       has_role: {

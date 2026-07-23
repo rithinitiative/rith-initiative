@@ -18,6 +18,7 @@ const Blogs = lazy(() => import("./pages/Blogs"));
 const Donate = lazy(() => import("./pages/Donate"));
 const Projects = lazy(() => import("./pages/Projects"));
 const ProjectDetail = lazy(() => import("./pages/ProjectDetail"));
+const SponsorshipOptions = lazy(() => import("./pages/SponsorshipOptions"));
 const Shop = lazy(() => import("./pages/Shop"));
 const Contact = lazy(() => import("./pages/Contact"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -39,6 +40,7 @@ const AdminShop = lazy(() => import("./pages/admin/AdminShop"));
 const AdminShopItemForm = lazy(() => import("./pages/admin/AdminShopItemForm"));
 const AdminTeam = lazy(() => import("./pages/admin/AdminTeam"));
 const AdminSettings = lazy(() => import("./pages/admin/AdminSettings"));
+const AdminNav = lazy(() => import("./pages/admin/AdminNav"));
 
 function RouteLoadingFallback() {
   return <PageSkeleton />;
@@ -68,6 +70,7 @@ const App = () => (
               <Route path="/stories" element={<Navigate to="/blogs" replace />} />
               <Route path="/projects" element={<Projects />} />
               <Route path="/projects/:slug" element={<ProjectDetail />} />
+              <Route path="/sponsorship-options" element={<SponsorshipOptions />} />
               <Route path="/shop" element={<Shop />} />
               <Route path="/donate" element={<Donate />} />
               <Route path="/contact" element={<Contact />} />
@@ -93,6 +96,7 @@ const App = () => (
                 <Route path="users" element={<AdminUsers />} />
                 <Route path="subscribers" element={<AdminSubscribers />} />
                 <Route path="settings" element={<AdminSettings />} />
+                <Route path="nav" element={<AdminNav />} />
                 <Route path="shop" element={<AdminShop />} />
                 <Route path="shop/new" element={<AdminShopItemForm />} />
                 <Route path="shop/:id" element={<AdminShopItemForm />} />

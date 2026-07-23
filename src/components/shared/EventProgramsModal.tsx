@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { toast } from "sonner";
-import { CheckCircle2, ExternalLink, Image as ImageIcon } from "lucide-react";
+import { CheckCircle2, ExternalLink, Image as ImageIcon, Users } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -14,34 +14,70 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { sanitizeRichText } from "@/lib/richText";
-import { EventProgram, isValidEmail } from "@/lib/programs";
+import {
+  EventProgram,
+  ProgramAvailability,
+  isValidEmail,
+  spotsRemaining,
+} from "@/lib/programs";
 
 interface EventProgramsModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   eventTitle: string;
   programs: EventProgram[];
+  availability?: Record<string, ProgramAvailability>;
+  onRegistered?: (programId: string, attendees: number) => void;
 }
 
 function ProgramRegistrationForm({
   program,
   eventTitle,
+  availability,
+  onRegistered,
 }: {
   program: EventProgram;
   eventTitle: string;
+  availability?: ProgramAvailability;
+  onRegistered?: (programId: string, attendees: number) => void;
 }) {
-  const [form, setForm] = useState({ name: "", email: "", phone: "", notes: "" });
+  const [form, setForm] = useState({ name: "", email: "", phone: "", notes: "", adults: 1, minors: 0 });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
-  const update = (field: keyof typeof form) => (
+  const remaining = spotsRemaining(availability);
+  const isFull = remaining !== null && remaining <= 0;
+  const requested = form.adults + form.minors;
+  const overCapacity = remaining !== null && requested > remaining;
+
+  const updateText = (field: "name" | "email" | "phone" | "notes") => (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => setForm((prev) => ({ ...prev, [field]: e.target.value }));
+
+  const updateCount = (field: "adults" | "minors") => (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const raw = parseInt(e.target.value, 10);
+    const value = Number.isNaN(raw) ? 0 : Math.max(0, raw);
+    setForm((prev) => ({ ...prev, [field]: value }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name.trim() || !isValidEmail(form.email)) {
       toast.error("Please enter your name and a valid email address.");
+      return;
+    }
+    if (requested < 1) {
+      toast.error("Please register at least one attendee.");
+      return;
+    }
+    if (overCapacity) {
+      toast.error(
+        remaining === 0
+          ? "This program is full."
+          : `Only ${remaining} spot${remaining === 1 ? "" : "s"} left.`,
+      );
       return;
     }
 
@@ -54,6 +90,8 @@ function ProgramRegistrationForm({
         email: form.email.trim(),
         phone: form.phone.trim() || null,
         notes: form.notes.trim() || null,
+        adults: form.adults,
+        minors: form.minors,
       });
 
       if (error) throw error;
@@ -70,6 +108,7 @@ function ProgramRegistrationForm({
               `${form.name.trim()} registered for "${program.title}" (${eventTitle}).\n` +
               `Email: ${form.email.trim()}\n` +
               `Phone: ${form.phone.trim() || "—"}\n` +
+              `Attendees: ${form.adults} adult(s), ${form.minors} minor(s)\n` +
               `Notes: ${form.notes.trim() || "—"}`,
           },
         })
@@ -77,24 +116,53 @@ function ProgramRegistrationForm({
           /* notification is best-effort */
         });
 
+      onRegistered?.(program.id, requested);
       setSubmitted(true);
       toast.success(`You're registered for ${program.title}!`);
     } catch (error) {
       console.error("Error registering:", error);
-      toast.error("Could not complete your registration. Please try again.");
+      const message = (error as { message?: string })?.message || "";
+      if (message.toLowerCase().includes("full") || message.toLowerCase().includes("capacity")) {
+        toast.error("Sorry — this program just filled up.");
+      } else {
+        toast.error("Could not complete your registration. Please try again.");
+      }
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  if (!program.registration_enabled) {
+  // Mode: no registration at all.
+  if (program.registration_mode === "none") {
     return (
       <p className="rounded-md bg-secondary/40 px-4 py-3 text-sm text-muted-foreground">
-        Registration for this program is not open yet.
+        No registration is required for this program — just come along.
       </p>
     );
   }
 
+  // Mode: register through an external link only.
+  if (program.registration_mode === "external") {
+    return (
+      <div className="rounded-md bg-secondary/30 px-4 py-4">
+        <p className="mb-3 text-sm text-muted-foreground">
+          Registration for this program is handled on an external page.
+        </p>
+        {program.registration_url ? (
+          <Button variant="hero" asChild>
+            <a href={program.registration_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2">
+              Register for {program.title}
+              <ExternalLink size={16} />
+            </a>
+          </Button>
+        ) : (
+          <p className="text-sm text-muted-foreground">Registration link coming soon.</p>
+        )}
+      </div>
+    );
+  }
+
+  // Mode: on-site form.
   if (submitted) {
     return (
       <div className="flex items-center gap-2 rounded-md bg-primary/10 px-4 py-3 text-sm font-medium text-primary">
@@ -104,47 +172,84 @@ function ProgramRegistrationForm({
     );
   }
 
+  if (isFull) {
+    return (
+      <p className="rounded-md bg-secondary/40 px-4 py-3 text-sm font-medium text-muted-foreground">
+        Registration for {program.title} is full. Thank you for your interest!
+      </p>
+    );
+  }
+
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
-      {program.registration_url && (
-        <p className="text-xs text-muted-foreground">
-          Prefer to register elsewhere?{" "}
-          <a
-            href={program.registration_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 font-medium text-primary underline underline-offset-2"
-          >
-            Open external registration <ExternalLink size={12} />
-          </a>
+      {remaining !== null && (
+        <p className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+          <Users size={13} />
+          {remaining} spot{remaining === 1 ? "" : "s"} left
         </p>
       )}
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">
           <Label htmlFor={`name-${program.id}`}>Name *</Label>
-          <Input id={`name-${program.id}`} value={form.name} onChange={update("name")} placeholder="Your name" required />
+          <Input id={`name-${program.id}`} value={form.name} onChange={updateText("name")} placeholder="Your name" required />
         </div>
         <div className="space-y-1.5">
           <Label htmlFor={`email-${program.id}`}>Email *</Label>
-          <Input id={`email-${program.id}`} type="email" value={form.email} onChange={update("email")} placeholder="you@example.com" required />
+          <Input id={`email-${program.id}`} type="email" value={form.email} onChange={updateText("email")} placeholder="you@example.com" required />
+        </div>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-1.5">
+          <Label htmlFor={`adults-${program.id}`}>Adults *</Label>
+          <Input
+            id={`adults-${program.id}`}
+            type="number"
+            min={0}
+            max={remaining ?? undefined}
+            value={form.adults}
+            onChange={updateCount("adults")}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor={`minors-${program.id}`}>Minors</Label>
+          <Input
+            id={`minors-${program.id}`}
+            type="number"
+            min={0}
+            max={remaining ?? undefined}
+            value={form.minors}
+            onChange={updateCount("minors")}
+          />
         </div>
       </div>
       <div className="space-y-1.5">
         <Label htmlFor={`phone-${program.id}`}>Phone (optional)</Label>
-        <Input id={`phone-${program.id}`} value={form.phone} onChange={update("phone")} placeholder="(555) 555-5555" />
+        <Input id={`phone-${program.id}`} value={form.phone} onChange={updateText("phone")} placeholder="(555) 555-5555" />
       </div>
       <div className="space-y-1.5">
         <Label htmlFor={`notes-${program.id}`}>Anything we should know? (optional)</Label>
-        <Textarea id={`notes-${program.id}`} value={form.notes} onChange={update("notes")} rows={2} placeholder="Dietary needs, number of guests, etc." />
+        <Textarea id={`notes-${program.id}`} value={form.notes} onChange={updateText("notes")} rows={2} placeholder="Dietary needs, accessibility, etc." />
       </div>
-      <Button type="submit" variant="hero" disabled={isSubmitting} className="w-full sm:w-auto">
+      {overCapacity && (
+        <p className="text-xs font-medium text-destructive">
+          Only {remaining} spot{remaining === 1 ? "" : "s"} left — please reduce your party size.
+        </p>
+      )}
+      <Button type="submit" variant="hero" disabled={isSubmitting || overCapacity} className="w-full sm:w-auto">
         {isSubmitting ? "Registering..." : `Register for ${program.title}`}
       </Button>
     </form>
   );
 }
 
-export function EventProgramsModal({ open, onOpenChange, eventTitle, programs }: EventProgramsModalProps) {
+export function EventProgramsModal({
+  open,
+  onOpenChange,
+  eventTitle,
+  programs,
+  availability,
+  onRegistered,
+}: EventProgramsModalProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
@@ -183,8 +288,15 @@ export function EventProgramsModal({ open, onOpenChange, eventTitle, programs }:
                   )}
 
                   <div className="mt-4 border-t border-border/60 pt-4">
-                    <p className="mb-3 text-sm font-semibold text-foreground">Register for {program.title}</p>
-                    <ProgramRegistrationForm program={program} eventTitle={eventTitle} />
+                    {program.registration_mode !== "none" && (
+                      <p className="mb-3 text-sm font-semibold text-foreground">Register for {program.title}</p>
+                    )}
+                    <ProgramRegistrationForm
+                      program={program}
+                      eventTitle={eventTitle}
+                      availability={availability?.[program.id]}
+                      onRegistered={onRegistered}
+                    />
                   </div>
                 </div>
               </div>

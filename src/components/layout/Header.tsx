@@ -5,117 +5,64 @@ import { Button } from "@/components/ui/button";
 import { NewsletterPopup } from "@/components/shared/NewsletterPopup";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { getProjectPath, sortProjects } from "@/lib/projects";
-import { getSubsectionAnchor } from "@/lib/subsections";
-import { isProjectRecord } from "@/lib/postClassification";
+import { NavItemRow, NavNode, buildNavTree, isExternalUrl } from "@/lib/nav";
 import logo from "@/assets/logo.png";
 
-const navLinks = [
-  { href: "/", label: "Home" },
-  { href: "/about", label: "About" },
-  { href: "/projects", label: "Projects" },
-  { href: "/events", label: "Events" },
-  { href: "/blogs", label: "Blogs" },
-  { href: "/shop", label: "Shop" },
-  { href: "/donate", label: "Donate" },
-  { href: "/contact", label: "Contact" },
+// Fallback used only if the nav table can't be read (keeps the site navigable).
+const FALLBACK_NAV: NavNode[] = [
+  { id: "f-home", label: "Home", url: "/", parent_id: null, display_order: 0, opens_new_tab: false, is_published: true, children: [] },
+  { id: "f-about", label: "About", url: "/about", parent_id: null, display_order: 1, opens_new_tab: false, is_published: true, children: [] },
+  { id: "f-projects", label: "Projects", url: "/projects", parent_id: null, display_order: 2, opens_new_tab: false, is_published: true, children: [] },
+  { id: "f-events", label: "Events", url: "/events", parent_id: null, display_order: 3, opens_new_tab: false, is_published: true, children: [] },
+  { id: "f-blogs", label: "Blogs", url: "/blogs", parent_id: null, display_order: 4, opens_new_tab: false, is_published: true, children: [] },
+  { id: "f-shop", label: "Shop", url: "/shop", parent_id: null, display_order: 5, opens_new_tab: false, is_published: true, children: [] },
+  { id: "f-donate", label: "Donate", url: "/donate", parent_id: null, display_order: 6, opens_new_tab: false, is_published: true, children: [] },
+  { id: "f-contact", label: "Contact", url: "/contact", parent_id: null, display_order: 7, opens_new_tab: false, is_published: true, children: [] },
 ];
-
-interface ProjectNavItem {
-  id: string;
-  title: string;
-  category: string | null;
-  project_slug: string | null;
-  project_display_order: number | null;
-  published_at: string | null;
-  created_at: string | null;
-}
 
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showUpdatesModal, setShowUpdatesModal] = useState(false);
   const [email, setEmail] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [projects, setProjects] = useState<ProjectNavItem[]>([]);
-  // Per-project jump-nav items (Overview → subsections → Interviews/Gallery),
-  // keyed by project id. Only projects that have subsections get an entry.
-  const [projectSubnav, setProjectSubnav] = useState<Record<string, { id: string; label: string }[]>>({});
+  const [nav, setNav] = useState<NavNode[]>(FALLBACK_NAV);
   const location = useLocation();
 
   useEffect(() => {
-    const fetchProjects = async () => {
+    const fetchNav = async () => {
       const { data, error } = await supabase
-        .from("blog_posts")
-        .select("id, title, category, project_slug, project_display_order, published_at, created_at")
-        .eq("is_archived", false)
+        .from("nav_items")
+        .select("id, label, url, parent_id, display_order, opens_new_tab, is_published")
         .eq("is_published", true)
-        .order("project_display_order", { ascending: true })
-        .order("published_at", { ascending: false });
+        .order("display_order", { ascending: true });
 
-      if (error) return;
-
-      const orderedProjects = sortProjects(((data || []) as ProjectNavItem[]).filter(isProjectRecord));
-      setProjects(orderedProjects);
-
-      const ids = orderedProjects.map((project) => project.id);
-      if (ids.length === 0) return;
-
-      // Fetch the pieces that make up each project's on-page nav, batched across
-      // all projects. Interviews/Gallery are only listed when the project has them.
-      const [subsRes, interviewRes, mediaRes] = await Promise.all([
-        supabase
-          .from("project_subsections")
-          .select("id, project_id, title, anchor_slug, display_order")
-          .in("project_id", ids)
-          .eq("is_published", true)
-          .order("display_order", { ascending: true }),
-        supabase
-          .from("project_interviews")
-          .select("project_id")
-          .in("project_id", ids)
-          .eq("is_published", true),
-        supabase
-          .from("media")
-          .select("entity_id")
-          .eq("entity_type", "blog_post")
-          .in("entity_id", ids),
-      ]);
-
-      const subsByProject: Record<string, { id: string; label: string }[]> = {};
-      ((subsRes.data || []) as Array<{ project_id: string; anchor_slug: string | null; title: string }>).forEach((sub) => {
-        if (!subsByProject[sub.project_id]) subsByProject[sub.project_id] = [];
-        subsByProject[sub.project_id].push({ id: getSubsectionAnchor(sub), label: sub.title });
-      });
-
-      const interviewSet = new Set(((interviewRes.data || []) as Array<{ project_id: string }>).map((row) => row.project_id));
-      const mediaSet = new Set(((mediaRes.data || []) as Array<{ entity_id: string }>).map((row) => row.entity_id));
-
-      const navMap: Record<string, { id: string; label: string }[]> = {};
-      for (const project of orderedProjects) {
-        const subs = subsByProject[project.id];
-        if (!subs || subs.length === 0) continue; // plain link when there are no subsections
-        const items = [{ id: "overview", label: "Overview" }, ...subs];
-        if (interviewSet.has(project.id)) items.push({ id: "interviews", label: "Interviews" });
-        if (mediaSet.has(project.id)) items.push({ id: "gallery", label: "Gallery" });
-        navMap[project.id] = items;
-      }
-      setProjectSubnav(navMap);
+      if (error || !data || data.length === 0) return; // keep fallback
+      setNav(buildNavTree(data as NavItemRow[]));
     };
 
-    fetchProjects();
+    fetchNav();
   }, []);
+
+  const isActivePath = (url: string | null): boolean => {
+    if (!url || isExternalUrl(url)) return false;
+    if (url === "/") return location.pathname === "/";
+    return location.pathname === url || location.pathname.startsWith(`${url}/`);
+  };
+
+  const isNodeActive = (node: NavNode): boolean =>
+    isActivePath(node.url) || node.children.some(isNodeActive);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    
+
     try {
       const { error } = await supabase
-        .from('email_subscribers')
-        .insert({ email, source: 'header' });
+        .from("email_subscribers")
+        .insert({ email, source: "header" });
 
       if (error) {
-        if (error.code === '23505') {
+        if (error.code === "23505") {
           toast.info("You're already subscribed!");
         } else {
           throw error;
@@ -123,7 +70,7 @@ export function Header() {
       } else {
         toast.success("Thanks for signing up! We'll keep you updated.");
       }
-      
+
       setEmail("");
       setShowUpdatesModal(false);
     } catch (error) {
@@ -134,6 +81,70 @@ export function Header() {
     }
   };
 
+  // A single link that renders as a router <Link> for internal paths and a
+  // plain <a> for external URLs.
+  const NavLink = ({
+    node,
+    className,
+    onClick,
+    children,
+  }: {
+    node: NavNode;
+    className?: string;
+    onClick?: () => void;
+    children?: React.ReactNode;
+  }) => {
+    const content = children ?? node.label;
+    if (!node.url) {
+      return <span className={className}>{content}</span>;
+    }
+    if (isExternalUrl(node.url)) {
+      return (
+        <a
+          href={node.url}
+          className={className}
+          onClick={onClick}
+          target={node.opens_new_tab ? "_blank" : undefined}
+          rel={node.opens_new_tab ? "noopener noreferrer" : undefined}
+        >
+          {content}
+        </a>
+      );
+    }
+    return (
+      <Link
+        to={node.url}
+        className={className}
+        onClick={onClick}
+        target={node.opens_new_tab ? "_blank" : undefined}
+        rel={node.opens_new_tab ? "noopener noreferrer" : undefined}
+      >
+        {content}
+      </Link>
+    );
+  };
+
+  // Renders a dropdown child, plus a nested (indented) list of its own children.
+  const DropdownChild = ({ node }: { node: NavNode }) => (
+    <div>
+      <NavLink
+        node={node}
+        className="block rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-secondary"
+      />
+      {node.children.length > 0 && (
+        <div className="mb-1 ml-3 flex flex-col border-l border-border/60 pl-2">
+          {node.children.map((grandchild) => (
+            <NavLink
+              key={grandchild.id}
+              node={grandchild}
+              className="rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground"
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <>
       <header className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border/50">
@@ -141,9 +152,9 @@ export function Header() {
           <nav className="flex items-center justify-between h-20 md:h-24">
             {/* Logo */}
             <Link to="/" className="flex items-center gap-3 group">
-              <img 
-                src={logo} 
-                alt="The Rith Initiative Logo" 
+              <img
+                src={logo}
+                alt="The Rith Initiative Logo"
                 className="h-16 md:h-20 w-auto transition-transform group-hover:scale-105"
                 fetchPriority="high"
                 decoding="async"
@@ -152,71 +163,40 @@ export function Header() {
 
             {/* Desktop Navigation */}
             <div className="hidden md:flex items-center gap-6 lg:gap-8">
-              {navLinks.map((link) =>
-                link.href === "/projects" ? (
-                  <div key={link.href} className="group relative py-8">
-                    <Link
-                      to={link.href}
+              {nav.map((item) =>
+                item.children.length > 0 ? (
+                  <div key={item.id} className="group relative py-8">
+                    <NavLink
+                      node={item}
                       className={`flex items-center gap-1 text-sm font-medium transition-colors hover:text-primary relative after:absolute after:bottom-0 after:left-0 after:h-0.5 after:bg-primary after:transition-all after:duration-300 ${
-                        location.pathname.startsWith("/projects")
+                        isNodeActive(item)
                           ? "text-primary after:w-full"
                           : "text-foreground/80 after:w-0 hover:after:w-full"
                       }`}
                     >
-                      Projects
+                      {item.label}
                       <ChevronDown size={14} />
-                    </Link>
+                    </NavLink>
                     <div className="invisible absolute left-1/2 top-full z-50 w-72 -translate-x-1/2 rounded-lg border border-border/50 bg-card p-2 opacity-0 shadow-elevated transition-all duration-200 group-hover:visible group-hover:opacity-100">
-                      <Link
-                        to="/projects"
-                        className="block rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-secondary"
-                      >
-                        All Projects
-                      </Link>
-                      {projects.map((project) => {
-                        const subItems = projectSubnav[project.id];
-                        return (
-                          <div key={project.id}>
-                            <Link
-                              to={getProjectPath(project)}
-                              className="block rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-secondary"
-                            >
-                              {project.title}
-                            </Link>
-                            {subItems && subItems.length > 0 && (
-                              <div className="mb-1 ml-3 flex flex-col border-l border-border/60 pl-2">
-                                {subItems.map((item) => (
-                                  <Link
-                                    key={item.id}
-                                    to={`${getProjectPath(project)}#${item.id}`}
-                                    className="rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground"
-                                  >
-                                    {item.label}
-                                  </Link>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
+                      {item.children.map((child) => (
+                        <DropdownChild key={child.id} node={child} />
+                      ))}
                     </div>
                   </div>
                 ) : (
-                  <Link
-                    key={link.href}
-                    to={link.href}
+                  <NavLink
+                    key={item.id}
+                    node={item}
                     className={`text-sm font-medium transition-colors hover:text-primary relative after:absolute after:bottom-0 after:left-0 after:h-0.5 after:bg-primary after:transition-all after:duration-300 ${
-                      location.pathname === link.href
+                      isActivePath(item.url)
                         ? "text-primary after:w-full"
                         : "text-foreground/80 after:w-0 hover:after:w-full"
                     }`}
-                  >
-                    {link.label}
-                  </Link>
+                  />
                 )
               )}
-              <Button 
-                variant="hero" 
+              <Button
+                variant="hero"
                 size="sm"
                 onClick={() => setShowUpdatesModal(true)}
               >
@@ -239,55 +219,44 @@ export function Header() {
           {isMenuOpen && (
             <div className="md:hidden py-4 border-t border-border/50 animate-fade-in">
               <div className="flex flex-col gap-4">
-                {navLinks.map((link) => (
-                  <div key={link.href}>
-                    <Link
-                      to={link.href}
+                {nav.map((item) => (
+                  <div key={item.id}>
+                    <NavLink
+                      node={item}
                       onClick={() => setIsMenuOpen(false)}
                       className={`block text-base font-medium py-2 transition-colors ${
-                        location.pathname === link.href || (link.href === "/projects" && location.pathname.startsWith("/projects"))
-                          ? "text-primary"
-                          : "text-foreground/80 hover:text-primary"
+                        isNodeActive(item) ? "text-primary" : "text-foreground/80 hover:text-primary"
                       }`}
-                    >
-                      {link.label}
-                    </Link>
-                    {link.href === "/projects" && projects.length > 0 && (
+                    />
+                    {item.children.length > 0 && (
                       <div className="ml-4 mt-1 flex flex-col gap-1 border-l border-border pl-3">
-                        {projects.map((project) => {
-                          const subItems = projectSubnav[project.id];
-                          return (
-                            <div key={project.id}>
-                              <Link
-                                to={getProjectPath(project)}
-                                onClick={() => setIsMenuOpen(false)}
-                                className="block py-1 text-sm font-medium text-foreground/90 hover:text-primary"
-                              >
-                                {project.title}
-                              </Link>
-                              {subItems && subItems.length > 0 && (
-                                <div className="mb-1 ml-3 mt-0.5 flex flex-col gap-0.5 border-l border-border pl-3">
-                                  {subItems.map((item) => (
-                                    <Link
-                                      key={item.id}
-                                      to={`${getProjectPath(project)}#${item.id}`}
-                                      onClick={() => setIsMenuOpen(false)}
-                                      className="py-1 text-sm text-muted-foreground hover:text-primary"
-                                    >
-                                      {item.label}
-                                    </Link>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
+                        {item.children.map((child) => (
+                          <div key={child.id}>
+                            <NavLink
+                              node={child}
+                              onClick={() => setIsMenuOpen(false)}
+                              className="block py-1 text-sm font-medium text-foreground/90 hover:text-primary"
+                            />
+                            {child.children.length > 0 && (
+                              <div className="mb-1 ml-3 mt-0.5 flex flex-col gap-0.5 border-l border-border pl-3">
+                                {child.children.map((grandchild) => (
+                                  <NavLink
+                                    key={grandchild.id}
+                                    node={grandchild}
+                                    onClick={() => setIsMenuOpen(false)}
+                                    className="py-1 text-sm text-muted-foreground hover:text-primary"
+                                  />
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>
                 ))}
-                <Button 
-                  variant="hero" 
+                <Button
+                  variant="hero"
                   className="mt-2"
                   onClick={() => {
                     setIsMenuOpen(false);
@@ -336,10 +305,10 @@ export function Header() {
                 placeholder="Enter your email"
                 className="w-full h-12 px-4 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary transition-all"
               />
-              <Button 
-                type="submit" 
-                variant="hero" 
-                size="lg" 
+              <Button
+                type="submit"
+                variant="hero"
+                size="lg"
                 className="w-full"
                 disabled={isSubmitting}
               >

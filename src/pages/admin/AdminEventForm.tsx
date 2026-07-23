@@ -33,13 +33,16 @@ interface EventFormData {
   featured_image_url: string;
 }
 
+type RegistrationMode = 'none' | 'external' | 'onsite';
+
 interface ProgramFormData {
   id?: string;
   title: string;
   description: string;
   poster_url: string;
-  registration_enabled: boolean;
+  registration_mode: RegistrationMode;
   registration_url: string;
+  capacity: string;
   display_order: number;
   is_published: boolean;
 }
@@ -51,6 +54,8 @@ interface RegistrationRow {
   email: string;
   phone: string | null;
   notes: string | null;
+  adults: number;
+  minors: number;
   created_at: string;
 }
 
@@ -58,8 +63,9 @@ const emptyProgram = (displayOrder: number): ProgramFormData => ({
   title: '',
   description: '',
   poster_url: '',
-  registration_enabled: true,
+  registration_mode: 'onsite',
   registration_url: '',
+  capacity: '',
   display_order: displayOrder,
   is_published: true,
 });
@@ -90,6 +96,12 @@ function RegistrationsList({ registrations }: { registrations: RegistrationRow[]
             <div className="text-muted-foreground">
               {registration.email}
               {registration.phone ? ` · ${registration.phone}` : ''}
+            </div>
+            <div className="text-muted-foreground">
+              {registration.adults} adult{registration.adults === 1 ? '' : 's'}
+              {registration.minors > 0
+                ? ` · ${registration.minors} minor${registration.minors === 1 ? '' : 's'}`
+                : ''}
             </div>
             {registration.notes && (
               <div className="mt-1 italic text-muted-foreground">{registration.notes}</div>
@@ -144,7 +156,7 @@ export default function AdminEventForm() {
               .order('display_order', { ascending: true }),
             supabase
               .from('event_registrations')
-              .select('id, program_id, name, email, phone, notes, created_at')
+              .select('id, program_id, name, email, phone, notes, adults, minors, created_at')
               .eq('event_id', id)
               .order('created_at', { ascending: false }),
           ]);
@@ -173,8 +185,9 @@ export default function AdminEventForm() {
             title: program.title || '',
             description: program.description || '',
             poster_url: program.poster_url || '',
-            registration_enabled: program.registration_enabled,
+            registration_mode: (program.registration_mode as RegistrationMode) || 'onsite',
             registration_url: program.registration_url || '',
+            capacity: program.capacity != null ? String(program.capacity) : '',
             display_order: program.display_order || 0,
             is_published: program.is_published,
           })));
@@ -283,8 +296,16 @@ export default function AdminEventForm() {
         title: program.title.trim(),
         description: program.description.trim() || null,
         poster_url: program.poster_url || null,
-        registration_enabled: program.registration_enabled,
-        registration_url: program.registration_url.trim() || null,
+        registration_mode: program.registration_mode,
+        // Keep the legacy flag in sync so anything still reading it stays correct.
+        registration_enabled: program.registration_mode === 'onsite',
+        // External URL only matters in 'external' mode; capacity only in 'onsite'.
+        registration_url:
+          program.registration_mode === 'external' ? program.registration_url.trim() || null : null,
+        capacity:
+          program.registration_mode === 'onsite' && program.capacity.trim()
+            ? parseInt(program.capacity, 10)
+            : null,
         display_order: index,
         is_published: program.is_published,
         created_by: user?.id,
@@ -713,25 +734,61 @@ export default function AdminEventForm() {
                     />
                   </div>
 
-                  <div className="flex items-center gap-3 rounded-lg bg-secondary/30 p-3">
-                    <Switch
-                      checked={program.registration_enabled}
-                      onCheckedChange={(checked) => updateProgram(index, { registration_enabled: checked })}
-                    />
-                    <span className="text-sm text-muted-foreground">
-                      {program.registration_enabled ? 'On-site registration is open' : 'Registration is closed'}
-                    </span>
+                  <div className="space-y-2 rounded-lg bg-secondary/30 p-3">
+                    <Label>Registration</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Choose one — a program is never registered in two places.
+                    </p>
+                    <div className="mt-1 flex flex-col gap-2 sm:flex-row sm:gap-4">
+                      {([
+                        { value: 'none', label: 'No registration' },
+                        { value: 'external', label: 'External link' },
+                        { value: 'onsite', label: 'On-site form' },
+                      ] as const).map((option) => (
+                        <label key={option.value} className="flex items-center gap-2 text-sm">
+                          <input
+                            type="radio"
+                            name={`registration_mode_${index}`}
+                            value={option.value}
+                            checked={program.registration_mode === option.value}
+                            onChange={() => updateProgram(index, { registration_mode: option.value })}
+                            className="h-4 w-4 accent-primary"
+                          />
+                          {option.label}
+                        </label>
+                      ))}
+                    </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label>External Registration Link (optional)</Label>
-                    <Input
-                      type="url"
-                      value={program.registration_url}
-                      onChange={(e) => updateProgram(index, { registration_url: e.target.value })}
-                      placeholder="https://... (shown as an alternative to the on-site form)"
-                    />
-                  </div>
+                  {program.registration_mode === 'external' && (
+                    <div className="space-y-2">
+                      <Label htmlFor={`registration_url_field_${index}`}>External Registration Link</Label>
+                      <Input
+                        id={`registration_url_field_${index}`}
+                        type="url"
+                        value={program.registration_url}
+                        onChange={(e) => updateProgram(index, { registration_url: e.target.value })}
+                        placeholder="https://..."
+                      />
+                    </div>
+                  )}
+
+                  {program.registration_mode === 'onsite' && (
+                    <div className="space-y-2">
+                      <Label htmlFor={`program_capacity_${index}`}>Capacity (optional)</Label>
+                      <Input
+                        id={`program_capacity_${index}`}
+                        type="number"
+                        min={0}
+                        value={program.capacity}
+                        onChange={(e) => updateProgram(index, { capacity: e.target.value })}
+                        placeholder="Leave blank for unlimited"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Maximum total attendees (adults + minors). Registration closes when the cap is reached.
+                      </p>
+                    </div>
+                  )}
 
                   <div className="flex items-center gap-3 rounded-lg bg-secondary/30 p-3">
                     <Switch

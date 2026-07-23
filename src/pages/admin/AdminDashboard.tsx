@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useNavigate, Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
-import { Calendar, LogOut, Home, LayoutDashboard, Users, Mail, Bell, Image, ShoppingBag, UserRound, FolderKanban, FileText, Settings } from 'lucide-react';
+import { Calendar, LogOut, Home, LayoutDashboard, Users, Mail, Bell, Image, ShoppingBag, UserRound, FolderKanban, FileText, Settings, Menu } from 'lucide-react';
 import logo from '@/assets/logo.png';
 import { AdminListSkeleton } from "@/components/shared/skeletons";
 
@@ -45,6 +45,7 @@ export default function AdminDashboard() {
     { href: '/admin/team', label: 'Rith Team', icon: UserRound },
     { href: '/admin/users', label: 'Administrators', icon: Users },
     { href: '/admin/subscribers', label: 'Subscribers', icon: Mail },
+    { href: '/admin/nav', label: 'Navigation', icon: Menu },
     { href: '/admin/settings', label: 'Settings', icon: Settings },
   ];
 

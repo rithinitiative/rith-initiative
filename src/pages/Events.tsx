@@ -12,7 +12,7 @@ import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { MediaLightbox } from "@/components/shared/MediaLightbox";
 import { EventProgramsModal } from "@/components/shared/EventProgramsModal";
-import { EventProgram } from "@/lib/programs";
+import { EventProgram, ProgramAvailability } from "@/lib/programs";
 import { EventsBookSkeleton } from "@/components/shared/skeletons";
 import { SITE_URL, createBreadcrumbSchema, createWebPageSchema } from "@/lib/seo";
 import {
@@ -53,6 +53,7 @@ export default function Events() {
   const [pastEvents, setPastEvents] = useState<Event[]>([]);
   const [eventMedia, setEventMedia] = useState<Record<string, MediaItem[]>>({});
   const [eventPrograms, setEventPrograms] = useState<Record<string, EventProgram[]>>({});
+  const [programAvailability, setProgramAvailability] = useState<Record<string, ProgramAvailability>>({});
   const [programsModalEventId, setProgramsModalEventId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -111,7 +112,7 @@ export default function Events() {
 
           const { data: programs, error: programsError } = await supabase
             .from('event_programs')
-            .select('id, event_id, title, description, poster_url, registration_enabled, registration_url, display_order')
+            .select('id, event_id, title, description, poster_url, registration_mode, registration_url, capacity, display_order')
             .in('event_id', eventIds)
             .eq('is_published', true)
             .order('display_order', { ascending: true });
@@ -123,6 +124,23 @@ export default function Events() {
               programsByEvent[p.event_id].push(p as EventProgram);
             });
             setEventPrograms(programsByEvent);
+
+            // Aggregate remaining-capacity lookup for programs that have a cap.
+            const cappedIds = programs
+              .filter((p) => p.capacity != null)
+              .map((p) => p.id);
+            if (cappedIds.length > 0) {
+              const { data: avail } = await supabase.rpc('get_program_availability', {
+                p_program_ids: cappedIds,
+              });
+              if (avail) {
+                const byProgram: Record<string, ProgramAvailability> = {};
+                (avail as ProgramAvailability[]).forEach((row) => {
+                  byProgram[row.program_id] = row;
+                });
+                setProgramAvailability(byProgram);
+              }
+            }
           }
         }
 
@@ -342,6 +360,17 @@ export default function Events() {
           }}
           eventTitle={programsModalEvent.title}
           programs={eventPrograms[programsModalEvent.id] || []}
+          availability={programAvailability}
+          onRegistered={(programId, attendees) => {
+            setProgramAvailability((prev) => {
+              const current = prev[programId];
+              if (!current) return prev;
+              return {
+                ...prev,
+                [programId]: { ...current, registered: current.registered + attendees },
+              };
+            });
+          }}
         />
       )}
     </Layout>

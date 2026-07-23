@@ -27,6 +27,7 @@ import { ImageUpload } from '@/components/admin/ImageUpload';
 import { RichTextEditor } from '@/components/admin/RichTextEditor';
 import { ArrowDown, ArrowUp, Loader2, Pencil, Trash2, UserRound } from 'lucide-react';
 import { htmlToPlainText } from '@/lib/richText';
+import { AdminListSkeleton } from "@/components/shared/skeletons";
 
 type TeamSection = 'board' | 'advisory';
 
@@ -381,9 +382,7 @@ export default function AdminTeam() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-      </div>
+      <AdminListSkeleton />
     );
   }
 

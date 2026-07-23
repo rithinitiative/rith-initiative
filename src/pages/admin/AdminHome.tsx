@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Calendar, Bell, Plus, ArrowRight, FolderKanban, FileText } from 'lucide-react';
 import { splitEventsByTimeline } from '@/lib/events';
 import { isBlogPostRecord, isProjectRecord } from '@/lib/postClassification';
+import { AdminListSkeleton } from "@/components/shared/skeletons";
 
 export default function AdminHome() {
   const [stats, setStats] = useState({
@@ -77,9 +78,7 @@ export default function AdminHome() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
+      <AdminListSkeleton />
     );
   }
 

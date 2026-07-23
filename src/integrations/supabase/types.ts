@@ -238,6 +238,107 @@ export type Database = {
         }
         Relationships: []
       }
+      event_programs: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          display_order: number
+          event_id: string
+          id: string
+          is_published: boolean
+          poster_url: string | null
+          registration_enabled: boolean
+          registration_url: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          display_order?: number
+          event_id: string
+          id?: string
+          is_published?: boolean
+          poster_url?: string | null
+          registration_enabled?: boolean
+          registration_url?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          display_order?: number
+          event_id?: string
+          id?: string
+          is_published?: boolean
+          poster_url?: string | null
+          registration_enabled?: boolean
+          registration_url?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_programs_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_registrations: {
+        Row: {
+          created_at: string
+          email: string
+          event_id: string
+          id: string
+          name: string
+          notes: string | null
+          phone: string | null
+          program_id: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          event_id: string
+          id?: string
+          name: string
+          notes?: string | null
+          phone?: string | null
+          program_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          event_id?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          program_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_registrations_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_registrations_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "event_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       events: {
         Row: {
           capacity: number | null
@@ -438,6 +539,106 @@ export type Database = {
           },
         ]
       }
+      project_subsection_tiers: {
+        Row: {
+          amount: number
+          created_at: string
+          description: string | null
+          display_order: number
+          id: string
+          name: string
+          subsection_id: string
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          name: string
+          subsection_id: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          name?: string
+          subsection_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_subsection_tiers_subsection_id_fkey"
+            columns: ["subsection_id"]
+            isOneToOne: false
+            referencedRelation: "project_subsections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_subsections: {
+        Row: {
+          anchor_slug: string | null
+          body: string | null
+          created_at: string
+          created_by: string | null
+          display_order: number
+          id: string
+          is_published: boolean
+          payment_note: string | null
+          payment_paypal_button_id: string | null
+          payment_zelle_qr_url: string | null
+          project_id: string
+          section_type: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          anchor_slug?: string | null
+          body?: string | null
+          created_at?: string
+          created_by?: string | null
+          display_order?: number
+          id?: string
+          is_published?: boolean
+          payment_note?: string | null
+          payment_paypal_button_id?: string | null
+          payment_zelle_qr_url?: string | null
+          project_id: string
+          section_type?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          anchor_slug?: string | null
+          body?: string | null
+          created_at?: string
+          created_by?: string | null
+          display_order?: number
+          id?: string
+          is_published?: boolean
+          payment_note?: string | null
+          payment_paypal_button_id?: string | null
+          payment_zelle_qr_url?: string | null
+          project_id?: string
+          section_type?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_subsections_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "blog_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       shop_items: {
         Row: {
           category: string | null
@@ -522,6 +723,27 @@ export type Database = {
           title?: string | null
           updated_at?: string
           video_url?: string | null
+        }
+        Relationships: []
+      }
+      site_settings: {
+        Row: {
+          key: string
+          updated_at: string
+          updated_by: string | null
+          value: string | null
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: string | null
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: string | null
         }
         Relationships: []
       }

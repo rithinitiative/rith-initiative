@@ -13,6 +13,8 @@ import { ImageUpload } from '@/components/admin/ImageUpload';
 import { RichTextEditor } from '@/components/admin/RichTextEditor';
 import { createProjectSlug } from '@/lib/projects';
 import { getEditableRichText } from '@/lib/richText';
+import { SubsectionType, createAnchorSlug } from '@/lib/subsections';
+import { AdminFormSkeleton } from "@/components/shared/skeletons";
 
 interface ProjectFormData {
   title: string;
@@ -50,6 +52,44 @@ const emptyInterview = (displayOrder: number): InterviewFormData => ({
   is_published: true,
 });
 
+interface TierFormData {
+  id?: string;
+  name: string;
+  description: string;
+  amount: string;
+  display_order: number;
+}
+
+interface SubsectionFormData {
+  id?: string;
+  title: string;
+  section_type: SubsectionType;
+  body: string;
+  payment_paypal_button_id: string;
+  payment_note: string;
+  display_order: number;
+  is_published: boolean;
+  tiers: TierFormData[];
+}
+
+const emptyTier = (displayOrder: number): TierFormData => ({
+  name: '',
+  description: '',
+  amount: '',
+  display_order: displayOrder,
+});
+
+const emptySubsection = (displayOrder: number): SubsectionFormData => ({
+  title: '',
+  section_type: 'rich_text',
+  body: '',
+  payment_paypal_button_id: '',
+  payment_note: '',
+  display_order: displayOrder,
+  is_published: true,
+  tiers: [],
+});
+
 export default function AdminPostForm() {
   const { id } = useParams();
   const isEditing = Boolean(id);
@@ -64,6 +104,9 @@ export default function AdminPostForm() {
   const [deletedInterviewIds, setDeletedInterviewIds] = useState<string[]>([]);
   const [uploadingInterviewIndex, setUploadingInterviewIndex] = useState<number | null>(null);
   const audioInputRefs = useRef<Record<number, HTMLInputElement | null>>({});
+  const [subsections, setSubsections] = useState<SubsectionFormData[]>([]);
+  const [deletedSubsectionIds, setDeletedSubsectionIds] = useState<string[]>([]);
+  const [deletedTierIds, setDeletedTierIds] = useState<string[]>([]);
 
   const [formData, setFormData] = useState<ProjectFormData>({
     title: '',
@@ -81,7 +124,11 @@ export default function AdminPostForm() {
 
     const fetchProject = async () => {
       try {
-        const [{ data: project, error: projectError }, { data: interviewData, error: interviewError }] = await Promise.all([
+        const [
+          { data: project, error: projectError },
+          { data: interviewData, error: interviewError },
+          { data: subsectionData, error: subsectionError },
+        ] = await Promise.all([
           supabase
             .from('blog_posts')
             .select('*')
@@ -92,10 +139,16 @@ export default function AdminPostForm() {
             .select('*')
             .eq('project_id', id)
             .order('display_order', { ascending: true }),
+          supabase
+            .from('project_subsections')
+            .select('*, project_subsection_tiers(*)')
+            .eq('project_id', id)
+            .order('display_order', { ascending: true }),
         ]);
 
         if (projectError) throw projectError;
         if (interviewError) throw interviewError;
+        if (subsectionError) throw subsectionError;
 
         if (project) {
           setFormData({
@@ -125,6 +178,27 @@ export default function AdminPostForm() {
         setInterviewCategories(Array.from(new Set((interviewData || [])
           .map((interview) => (interview.category || '').trim())
           .filter(Boolean))));
+
+        setSubsections((subsectionData || []).map((subsection) => ({
+          id: subsection.id,
+          title: subsection.title || '',
+          section_type: (subsection.section_type === 'sponsorship' ? 'sponsorship' : 'rich_text') as SubsectionType,
+          body: subsection.body || '',
+          payment_paypal_button_id: subsection.payment_paypal_button_id || '',
+          payment_note: subsection.payment_note || '',
+          display_order: subsection.display_order || 0,
+          is_published: subsection.is_published,
+          tiers: (subsection.project_subsection_tiers || [])
+            .slice()
+            .sort((a, b) => (a.display_order || 0) - (b.display_order || 0))
+            .map((tier) => ({
+              id: tier.id,
+              name: tier.name || '',
+              description: tier.description || '',
+              amount: tier.amount != null ? String(tier.amount) : '',
+              display_order: tier.display_order || 0,
+            })),
+        })));
       } catch (error) {
         console.error('Error fetching project:', error);
         toast({
@@ -196,6 +270,89 @@ export default function AdminPostForm() {
       next.splice(toIndex, 0, moved);
       return next.map((interview, order) => ({ ...interview, display_order: order }));
     });
+  };
+
+  // ---------- Page subsections (jump-nav + sponsorship tiers) ----------
+  const updateSubsection = (index: number, updates: Partial<SubsectionFormData>) => {
+    setSubsections((prev) => prev.map((subsection, i) => (
+      i === index ? { ...subsection, ...updates } : subsection
+    )));
+  };
+
+  const addSubsection = () => {
+    setSubsections((prev) => [...prev, emptySubsection(prev.length)]);
+  };
+
+  const removeSubsection = (index: number) => {
+    const subsection = subsections[index];
+    if (subsection.id) {
+      setDeletedSubsectionIds((prev) => [...prev, subsection.id as string]);
+    }
+    setSubsections((prev) => prev.filter((_, i) => i !== index).map((item, order) => ({
+      ...item,
+      display_order: order,
+    })));
+  };
+
+  const moveSubsection = (fromIndex: number, toIndex: number) => {
+    if (fromIndex === toIndex || toIndex < 0 || toIndex >= subsections.length) return;
+
+    setSubsections((prev) => {
+      const next = [...prev];
+      const [moved] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, moved);
+      return next.map((subsection, order) => ({ ...subsection, display_order: order }));
+    });
+  };
+
+  const addTier = (subsectionIndex: number) => {
+    setSubsections((prev) => prev.map((subsection, i) => (
+      i === subsectionIndex
+        ? { ...subsection, tiers: [...subsection.tiers, emptyTier(subsection.tiers.length)] }
+        : subsection
+    )));
+  };
+
+  const updateTier = (subsectionIndex: number, tierIndex: number, updates: Partial<TierFormData>) => {
+    setSubsections((prev) => prev.map((subsection, i) => (
+      i === subsectionIndex
+        ? {
+            ...subsection,
+            tiers: subsection.tiers.map((tier, t) => (t === tierIndex ? { ...tier, ...updates } : tier)),
+          }
+        : subsection
+    )));
+  };
+
+  const removeTier = (subsectionIndex: number, tierIndex: number) => {
+    const tier = subsections[subsectionIndex]?.tiers[tierIndex];
+    if (tier?.id) {
+      setDeletedTierIds((prev) => [...prev, tier.id as string]);
+    }
+    setSubsections((prev) => prev.map((subsection, i) => (
+      i === subsectionIndex
+        ? {
+            ...subsection,
+            tiers: subsection.tiers.filter((_, t) => t !== tierIndex).map((item, order) => ({
+              ...item,
+              display_order: order,
+            })),
+          }
+        : subsection
+    )));
+  };
+
+  const moveTier = (subsectionIndex: number, fromIndex: number, toIndex: number) => {
+    const tiers = subsections[subsectionIndex]?.tiers ?? [];
+    if (fromIndex === toIndex || toIndex < 0 || toIndex >= tiers.length) return;
+
+    setSubsections((prev) => prev.map((subsection, i) => {
+      if (i !== subsectionIndex) return subsection;
+      const next = [...subsection.tiers];
+      const [moved] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, moved);
+      return { ...subsection, tiers: next.map((tier, order) => ({ ...tier, display_order: order })) };
+    }));
   };
 
   const handleAudioUpload = async (index: number, file: File) => {
@@ -295,6 +452,89 @@ export default function AdminPostForm() {
     }
   };
 
+  const saveSubsections = async (projectId: string) => {
+    if (deletedTierIds.length > 0) {
+      const { error } = await supabase
+        .from('project_subsection_tiers')
+        .delete()
+        .in('id', deletedTierIds);
+      if (error) throw error;
+    }
+
+    if (deletedSubsectionIds.length > 0) {
+      const { error } = await supabase
+        .from('project_subsections')
+        .delete()
+        .in('id', deletedSubsectionIds);
+      if (error) throw error;
+    }
+
+    for (const [index, subsection] of subsections.entries()) {
+      if (!subsection.title.trim()) continue;
+
+      const isSponsorship = subsection.section_type === 'sponsorship';
+      const subsectionData = {
+        project_id: projectId,
+        title: subsection.title.trim(),
+        anchor_slug: createAnchorSlug(subsection.title),
+        section_type: subsection.section_type,
+        body: subsection.body.trim() || null,
+        payment_paypal_button_id: isSponsorship ? (subsection.payment_paypal_button_id.trim() || null) : null,
+        payment_note: isSponsorship ? (subsection.payment_note.trim() || null) : null,
+        display_order: index,
+        is_published: subsection.is_published,
+        created_by: user?.id,
+      };
+
+      if (subsection.id) {
+        const { error } = await supabase
+          .from('project_subsections')
+          .update(subsectionData)
+          .eq('id', subsection.id);
+        if (error) throw error;
+      } else {
+        const { data, error } = await supabase
+          .from('project_subsections')
+          .insert([subsectionData])
+          .select('id')
+          .single();
+        if (error) throw error;
+        subsection.id = data.id;
+      }
+
+      // Persist tiers only for sponsorship subsections.
+      if (!isSponsorship) continue;
+
+      for (const [tierIndex, tier] of subsection.tiers.entries()) {
+        if (!tier.name.trim()) continue;
+
+        const tierData = {
+          subsection_id: subsection.id as string,
+          name: tier.name.trim(),
+          description: tier.description.trim() || null,
+          amount: Number(tier.amount) || 0,
+          display_order: tierIndex,
+        };
+
+        if (tier.id) {
+          const { error } = await supabase
+            .from('project_subsection_tiers')
+            .update(tierData)
+            .eq('id', tier.id);
+          if (error) throw error;
+        } else {
+          const { data, error } = await supabase
+            .from('project_subsection_tiers')
+            .insert([tierData])
+            .select('id')
+            .single();
+          if (error) throw error;
+          tier.id = data.id;
+        }
+      }
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -360,6 +600,7 @@ export default function AdminPostForm() {
 
       if (projectId) {
         await saveInterviews(projectId);
+        await saveSubsections(projectId);
       }
 
       toast({
@@ -386,9 +627,7 @@ export default function AdminPostForm() {
 
   if (isFetching) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
+      <AdminFormSkeleton />
     );
   }
 
@@ -692,6 +931,214 @@ export default function AdminPostForm() {
                     />
                     <span className="text-sm text-muted-foreground">
                       {interview.is_published ? 'Show this interview on the website' : 'Keep this interview hidden'}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section className="space-y-4 rounded-lg border border-border/50 bg-card p-5 shadow-soft">
+          <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+            <div>
+              <h2 className="font-heading text-xl font-semibold text-foreground">Page Subsections</h2>
+              <p className="text-sm text-muted-foreground">
+                Extra content blocks shown on the project page with a jump-to navigation panel. Use a Sponsorship
+                block to list priced tiers with Zelle &amp; PayPal payment options.
+              </p>
+            </div>
+            <Button type="button" variant="outline" onClick={addSubsection}>
+              <Plus size={16} />
+              Add Subsection
+            </Button>
+          </div>
+
+          {subsections.length === 0 ? (
+            <div className="rounded-lg border-2 border-dashed border-border p-8 text-center">
+              <p className="text-sm text-muted-foreground">No subsections added yet.</p>
+            </div>
+          ) : (
+            <div className="space-y-5">
+              {subsections.map((subsection, index) => (
+                <div key={subsection.id || index} className="space-y-4 rounded-lg border border-border p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                      <GripVertical size={16} />
+                      Subsection #{index + 1}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button type="button" variant="outline" size="sm" onClick={() => moveSubsection(index, index - 1)} disabled={index === 0}>
+                        Up
+                      </Button>
+                      <Button type="button" variant="outline" size="sm" onClick={() => moveSubsection(index, index + 1)} disabled={index === subsections.length - 1}>
+                        Down
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="text-destructive hover:text-destructive"
+                        onClick={() => removeSubsection(index)}
+                      >
+                        <Trash2 size={16} />
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label>Subsection Title</Label>
+                      <Input
+                        value={subsection.title}
+                        onChange={(e) => updateSubsection(index, { title: e.target.value })}
+                        placeholder="e.g., Oral History Project"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Type</Label>
+                      <select
+                        value={subsection.section_type}
+                        onChange={(e) => updateSubsection(index, { section_type: e.target.value as SubsectionType })}
+                        className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                      >
+                        <option value="rich_text">Text block</option>
+                        <option value="sponsorship">Sponsorship</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>{subsection.section_type === 'sponsorship' ? 'Intro Text' : 'Content'}</Label>
+                    <RichTextEditor
+                      value={subsection.body}
+                      onChange={(body) => updateSubsection(index, { body })}
+                      placeholder={subsection.section_type === 'sponsorship'
+                        ? 'Short intro shown above the sponsorship tiers.'
+                        : 'Write the content for this subsection...'}
+                      minHeightClassName="min-h-[150px]"
+                    />
+                  </div>
+
+                  {subsection.section_type === 'sponsorship' && (
+                    <div className="space-y-4 rounded-lg border border-border/60 bg-secondary/20 p-4">
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="space-y-2">
+                          <Label>PayPal Hosted Button ID</Label>
+                          <Input
+                            value={subsection.payment_paypal_button_id}
+                            onChange={(e) => updateSubsection(index, { payment_paypal_button_id: e.target.value })}
+                            placeholder="e.g., 4GFPQY2QTTJBQ"
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            From the PayPal donate button code. Leave blank to hide the PayPal option.
+                          </p>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Payment Note (optional)</Label>
+                          <Textarea
+                            value={subsection.payment_note}
+                            onChange={(e) => updateSubsection(index, { payment_note: e.target.value })}
+                            placeholder="A short note shown under the tiers."
+                            rows={3}
+                          />
+                        </div>
+                      </div>
+
+                      <p className="rounded-md bg-secondary/20 px-3 py-2 text-xs text-muted-foreground">
+                        Zelle payments use the shared QR code set in{' '}
+                        <Link to="/admin/settings" className="font-medium text-primary underline underline-offset-2">
+                          Settings
+                        </Link>
+                        . It's the same across the whole site.
+                      </p>
+
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <Label>Sponsorship Tiers</Label>
+                            <p className="text-xs text-muted-foreground">
+                              Displayed highest amount first, automatically.
+                            </p>
+                          </div>
+                          <Button type="button" variant="outline" size="sm" onClick={() => addTier(index)}>
+                            <Plus size={16} />
+                            Add Tier
+                          </Button>
+                        </div>
+
+                        {subsection.tiers.length === 0 ? (
+                          <p className="rounded-md border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
+                            No tiers yet.
+                          </p>
+                        ) : (
+                          <div className="space-y-3">
+                            {subsection.tiers.map((tier, tierIndex) => (
+                              <div key={tier.id || tierIndex} className="rounded-md border border-border bg-background p-3">
+                                <div className="mb-3 flex items-center justify-between">
+                                  <span className="text-xs font-medium text-muted-foreground">Tier #{tierIndex + 1}</span>
+                                  <div className="flex items-center gap-2">
+                                    <Button type="button" variant="outline" size="sm" onClick={() => moveTier(index, tierIndex, tierIndex - 1)} disabled={tierIndex === 0}>
+                                      Up
+                                    </Button>
+                                    <Button type="button" variant="outline" size="sm" onClick={() => moveTier(index, tierIndex, tierIndex + 1)} disabled={tierIndex === subsection.tiers.length - 1}>
+                                      Down
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      className="text-destructive hover:text-destructive"
+                                      onClick={() => removeTier(index, tierIndex)}
+                                    >
+                                      <Trash2 size={16} />
+                                    </Button>
+                                  </div>
+                                </div>
+                                <div className="grid gap-3 sm:grid-cols-[1fr_1fr_120px]">
+                                  <div className="space-y-1.5">
+                                    <Label className="text-xs">Name</Label>
+                                    <Input
+                                      value={tier.name}
+                                      onChange={(e) => updateTier(index, tierIndex, { name: e.target.value })}
+                                      placeholder="Presenting Sponsor"
+                                    />
+                                  </div>
+                                  <div className="space-y-1.5">
+                                    <Label className="text-xs">Description</Label>
+                                    <Input
+                                      value={tier.description}
+                                      onChange={(e) => updateTier(index, tierIndex, { description: e.target.value })}
+                                      placeholder="Half the year"
+                                    />
+                                  </div>
+                                  <div className="space-y-1.5">
+                                    <Label className="text-xs">Amount ($)</Label>
+                                    <Input
+                                      type="number"
+                                      min={0}
+                                      step="1"
+                                      value={tier.amount}
+                                      onChange={(e) => updateTier(index, tierIndex, { amount: e.target.value })}
+                                      placeholder="2500"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-3 rounded-lg bg-secondary/30 p-3">
+                    <Switch
+                      checked={subsection.is_published}
+                      onCheckedChange={(checked) => updateSubsection(index, { is_published: checked })}
+                    />
+                    <span className="text-sm text-muted-foreground">
+                      {subsection.is_published ? 'Show this subsection on the website' : 'Keep this subsection hidden'}
                     </span>
                   </div>
                 </div>

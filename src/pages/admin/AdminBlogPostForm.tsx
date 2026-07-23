@@ -13,6 +13,7 @@ import { ImageUpload } from '@/components/admin/ImageUpload';
 import { FormBuilder, FormBuilderHandle, FormData as BlogFormData } from '@/components/admin/FormBuilder';
 import { RichTextEditor } from '@/components/admin/RichTextEditor';
 import { getEditableRichText } from '@/lib/richText';
+import { AdminFormSkeleton } from "@/components/shared/skeletons";
 
 interface PostFormData {
   title: string;
@@ -292,9 +293,7 @@ export default function AdminBlogPostForm() {
 
   if (isFetching) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
+      <AdminFormSkeleton />
     );
   }
 

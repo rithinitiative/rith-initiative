@@ -6,11 +6,14 @@ import { PageMeta } from "@/components/shared/PageMeta";
 import { SectionDivider } from "@/components/shared/SectionDivider";
 import { ScrollReveal } from "@/components/shared/ScrollReveal";
 import { MediaLightbox } from "@/components/shared/MediaLightbox";
+import { ProjectSubsections, SubsectionNavItem } from "@/components/shared/ProjectSubsections";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { createBreadcrumbSchema, createWebPageSchema } from "@/lib/seo";
 import { sanitizeRichText } from "@/lib/richText";
 import { isProjectRecord } from "@/lib/postClassification";
+import { ProjectSubsection, getSubsectionAnchor } from "@/lib/subsections";
+import { ProjectDetailSkeleton } from "@/components/shared/skeletons";
 
 interface Project {
   id: string;
@@ -129,6 +132,7 @@ export default function ProjectDetail() {
   const [interviews, setInterviews] = useState<ProjectInterview[]>([]);
   const [selectedInterviewCategory, setSelectedInterviewCategory] = useState<string | null>(null);
   const [media, setMedia] = useState<MediaItem[]>([]);
+  const [subsections, setSubsections] = useState<ProjectSubsection[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
@@ -153,7 +157,7 @@ export default function ProjectDetail() {
         setProject((projectData || null) as Project | null);
 
         if (projectData?.id) {
-          const [{ data: interviewData }, { data: mediaData }] = await Promise.all([
+          const [{ data: interviewData }, { data: mediaData }, { data: subsectionData }] = await Promise.all([
             supabase
               .from("project_interviews")
               .select("id, title, category, interviewee_name, interviewee_description, portrait_url, audio_url, transcript, display_order")
@@ -166,10 +170,20 @@ export default function ProjectDetail() {
               .eq("entity_type", "blog_post")
               .eq("entity_id", projectData.id)
               .order("display_order", { ascending: true }),
+            supabase
+              .from("project_subsections")
+              .select("id, title, anchor_slug, section_type, body, payment_zelle_qr_url, payment_paypal_button_id, payment_note, display_order, is_published, project_subsection_tiers(id, name, description, amount, display_order)")
+              .eq("project_id", projectData.id)
+              .eq("is_published", true)
+              .order("display_order", { ascending: true }),
           ]);
 
           setInterviews((interviewData || []) as ProjectInterview[]);
           setMedia((mediaData || []) as MediaItem[]);
+          setSubsections(((subsectionData || []) as Array<Record<string, unknown> & { project_subsection_tiers?: unknown }>).map((row) => ({
+            ...(row as unknown as ProjectSubsection),
+            tiers: ((row.project_subsection_tiers as ProjectSubsection["tiers"]) || []),
+          })));
         }
       } catch (error) {
         console.error("Error fetching project:", error);
@@ -184,9 +198,7 @@ export default function ProjectDetail() {
   if (isLoading) {
     return (
       <Layout>
-        <div className="flex min-h-[50vh] items-center justify-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-        </div>
+        <ProjectDetailSkeleton />
       </Layout>
     );
   }
@@ -226,6 +238,13 @@ export default function ProjectDetail() {
   const visibleInterviews = selectedInterviewCategory
     ? interviews.filter((interview) => interview.category === selectedInterviewCategory)
     : interviews;
+
+  const subsectionNavItems: SubsectionNavItem[] = [
+    { id: "overview", label: "Overview" },
+    ...subsections.map((subsection) => ({ id: getSubsectionAnchor(subsection), label: subsection.title })),
+    ...(interviews.length > 0 ? [{ id: "interviews", label: "Interviews" }] : []),
+    ...(media.length > 0 ? [{ id: "gallery", label: "Gallery" }] : []),
+  ];
 
   return (
     <Layout>
@@ -282,7 +301,7 @@ export default function ProjectDetail() {
 
       <SectionDivider />
 
-      <section className="section-padding">
+      <section id="overview" className="section-padding scroll-mt-28">
         <div className="container-narrow">
           <ScrollReveal variant="fade-up">
             <div
@@ -293,10 +312,21 @@ export default function ProjectDetail() {
         </div>
       </section>
 
+      {subsections.length > 0 && (
+        <>
+          <SectionDivider />
+          <section className="section-padding">
+            <div className="container-wide">
+              <ProjectSubsections subsections={subsections} navItems={subsectionNavItems} />
+            </div>
+          </section>
+        </>
+      )}
+
       {interviews.length > 0 && (
         <>
           <SectionDivider />
-          <section className="section-padding bg-secondary/20">
+          <section id="interviews" className="section-padding bg-secondary/20 scroll-mt-28">
             <div className="container-wide">
               <ScrollReveal variant="fade-up">
                 <div className="mb-8 max-w-3xl">
@@ -342,7 +372,7 @@ export default function ProjectDetail() {
       {media.length > 0 && (
         <>
           <SectionDivider />
-          <section className="section-padding">
+          <section id="gallery" className="section-padding scroll-mt-28">
             <div className="container-wide">
               <ScrollReveal variant="fade-up">
                 <div className="mb-8 text-center">

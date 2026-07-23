@@ -19,6 +19,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface FormField {
   id: string;
@@ -178,8 +179,10 @@ export function FormSubmissionsViewer({ postId, postTitle }: FormSubmissionsView
         </DialogHeader>
 
         {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          <div className="space-y-3 py-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-16 w-full rounded-lg" />
+            ))}
           </div>
         ) : !formId ? (
           <div className="py-8 text-center text-muted-foreground">

@@ -10,6 +10,7 @@ import { Link } from 'react-router-dom';
 import logo from '@/assets/logo.png';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PageMeta } from '@/components/shared/PageMeta';
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function AdminLogin() {
   const [email, setEmail] = useState('');
@@ -156,8 +157,13 @@ export default function AdminLogin() {
           noindex
           nofollow
         />
-        <div className="min-h-screen flex items-center justify-center bg-background">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <div className="min-h-screen bg-background p-6">
+          <div className="mx-auto max-w-md space-y-4 pt-16">
+            <Skeleton className="mx-auto h-8 w-40" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+          </div>
         </div>
       </>
     );

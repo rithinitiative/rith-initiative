@@ -14,6 +14,7 @@ import {
 import { Download, Search, Mail, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -162,8 +163,13 @@ export default function AdminSubscribers() {
 
       <div className="bg-card rounded-xl border border-border/50 overflow-hidden">
         {isLoading ? (
-          <div className="p-8 text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <div className="space-y-3 p-4">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="flex items-center justify-between gap-4">
+                <Skeleton className="h-5 w-64" />
+                <Skeleton className="h-8 w-8 rounded-md" />
+              </div>
+            ))}
           </div>
         ) : filteredSubscribers.length === 0 ? (
           <div className="p-8 text-center">

@@ -6,16 +6,19 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Plus, Save, Trash2 } from 'lucide-react';
+import { ArrowLeft, GripVertical, Plus, Save, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { ImageUpload } from '@/components/admin/ImageUpload';
 import { SimpleMediaUpload, SimpleMediaItem } from '@/components/admin/SimpleMediaUpload';
 import { RichTextEditor } from '@/components/admin/RichTextEditor';
+import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
 import {
   EventRegistrationLink,
   parseEventRegistrationLinks,
   serializeEventRegistrationLinks,
 } from '@/lib/events';
+import { AdminFormSkeleton } from "@/components/shared/skeletons";
 
 interface EventFormData {
   title: string;
@@ -30,6 +33,74 @@ interface EventFormData {
   featured_image_url: string;
 }
 
+interface ProgramFormData {
+  id?: string;
+  title: string;
+  description: string;
+  poster_url: string;
+  registration_enabled: boolean;
+  registration_url: string;
+  display_order: number;
+  is_published: boolean;
+}
+
+interface RegistrationRow {
+  id: string;
+  program_id: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  notes: string | null;
+  created_at: string;
+}
+
+const emptyProgram = (displayOrder: number): ProgramFormData => ({
+  title: '',
+  description: '',
+  poster_url: '',
+  registration_enabled: true,
+  registration_url: '',
+  display_order: displayOrder,
+  is_published: true,
+});
+
+function RegistrationsList({ registrations }: { registrations: RegistrationRow[] }) {
+  if (registrations.length === 0) {
+    return (
+      <p className="rounded-md bg-secondary/20 px-3 py-2 text-xs text-muted-foreground">
+        No registrations yet.
+      </p>
+    );
+  }
+
+  return (
+    <div className="rounded-md border border-border/60">
+      <div className="border-b border-border/60 bg-secondary/20 px-3 py-2 text-xs font-semibold text-foreground">
+        Registrations ({registrations.length})
+      </div>
+      <div className="max-h-60 divide-y divide-border/60 overflow-y-auto">
+        {registrations.map((registration) => (
+          <div key={registration.id} className="px-3 py-2 text-xs">
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-medium text-foreground">{registration.name}</span>
+              <span className="text-muted-foreground">
+                {new Date(registration.created_at).toLocaleDateString()}
+              </span>
+            </div>
+            <div className="text-muted-foreground">
+              {registration.email}
+              {registration.phone ? ` · ${registration.phone}` : ''}
+            </div>
+            {registration.notes && (
+              <div className="mt-1 italic text-muted-foreground">{registration.notes}</div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function AdminEventForm() {
   const { id } = useParams();
   const isEditing = Boolean(id);
@@ -39,6 +110,9 @@ export default function AdminEventForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(isEditing);
   const [mediaItems, setMediaItems] = useState<SimpleMediaItem[]>([]);
+  const [programs, setPrograms] = useState<ProgramFormData[]>([]);
+  const [deletedProgramIds, setDeletedProgramIds] = useState<string[]>([]);
+  const [registrations, setRegistrations] = useState<RegistrationRow[]>([]);
 
   const [formData, setFormData] = useState<EventFormData>({
     title: '',
@@ -57,13 +131,27 @@ export default function AdminEventForm() {
     if (isEditing && id) {
       const fetchEvent = async () => {
         try {
-          const { data, error } = await supabase
-            .from('events')
-            .select('*')
-            .eq('id', id)
-            .maybeSingle();
+          const [
+            { data, error },
+            { data: programData, error: programError },
+            { data: registrationData, error: registrationError },
+          ] = await Promise.all([
+            supabase.from('events').select('*').eq('id', id).maybeSingle(),
+            supabase
+              .from('event_programs')
+              .select('*')
+              .eq('event_id', id)
+              .order('display_order', { ascending: true }),
+            supabase
+              .from('event_registrations')
+              .select('id, program_id, name, email, phone, notes, created_at')
+              .eq('event_id', id)
+              .order('created_at', { ascending: false }),
+          ]);
 
           if (error) throw error;
+          if (programError) throw programError;
+          if (registrationError) throw registrationError;
 
           if (data) {
             setFormData({
@@ -79,6 +167,18 @@ export default function AdminEventForm() {
               featured_image_url: data.featured_image_url || '',
             });
           }
+
+          setPrograms((programData || []).map((program) => ({
+            id: program.id,
+            title: program.title || '',
+            description: program.description || '',
+            poster_url: program.poster_url || '',
+            registration_enabled: program.registration_enabled,
+            registration_url: program.registration_url || '',
+            display_order: program.display_order || 0,
+            is_published: program.is_published,
+          })));
+          setRegistrations((registrationData || []) as RegistrationRow[]);
         } catch (error) {
           console.error('Error fetching event:', error);
           toast({
@@ -135,6 +235,78 @@ export default function AdminEventForm() {
   const handleMediaChange = useCallback((media: SimpleMediaItem[]) => {
     setMediaItems(media);
   }, []);
+
+  // ---------- Event programs ----------
+  const updateProgram = (index: number, updates: Partial<ProgramFormData>) => {
+    setPrograms((prev) => prev.map((program, i) => (i === index ? { ...program, ...updates } : program)));
+  };
+
+  const addProgram = () => {
+    setPrograms((prev) => [...prev, emptyProgram(prev.length)]);
+  };
+
+  const removeProgram = (index: number) => {
+    const program = programs[index];
+    if (program.id) {
+      setDeletedProgramIds((prev) => [...prev, program.id as string]);
+    }
+    setPrograms((prev) => prev.filter((_, i) => i !== index).map((item, order) => ({
+      ...item,
+      display_order: order,
+    })));
+  };
+
+  const moveProgram = (fromIndex: number, toIndex: number) => {
+    if (fromIndex === toIndex || toIndex < 0 || toIndex >= programs.length) return;
+    setPrograms((prev) => {
+      const next = [...prev];
+      const [moved] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, moved);
+      return next.map((program, order) => ({ ...program, display_order: order }));
+    });
+  };
+
+  const savePrograms = async (eventId: string) => {
+    if (deletedProgramIds.length > 0) {
+      const { error } = await supabase
+        .from('event_programs')
+        .delete()
+        .in('id', deletedProgramIds);
+      if (error) throw error;
+    }
+
+    for (const [index, program] of programs.entries()) {
+      if (!program.title.trim()) continue;
+
+      const programData = {
+        event_id: eventId,
+        title: program.title.trim(),
+        description: program.description.trim() || null,
+        poster_url: program.poster_url || null,
+        registration_enabled: program.registration_enabled,
+        registration_url: program.registration_url.trim() || null,
+        display_order: index,
+        is_published: program.is_published,
+        created_by: user?.id,
+      };
+
+      if (program.id) {
+        const { error } = await supabase
+          .from('event_programs')
+          .update(programData)
+          .eq('id', program.id);
+        if (error) throw error;
+      } else {
+        const { data, error } = await supabase
+          .from('event_programs')
+          .insert([programData])
+          .select('id')
+          .single();
+        if (error) throw error;
+        program.id = data.id;
+      }
+    }
+  };
 
   // Helper function to convert date string to ISO without timezone shift
   const dateToISO = (dateStr: string): string => {
@@ -250,6 +422,8 @@ export default function AdminEventForm() {
             if (error) throw error;
           }
         }
+
+        await savePrograms(eventId);
       }
 
       toast({
@@ -272,9 +446,7 @@ export default function AdminEventForm() {
 
   if (isFetching) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
+      <AdminFormSkeleton />
     );
   }
 
@@ -467,6 +639,120 @@ export default function AdminEventForm() {
             />
           </div>
         </div>
+
+        {/* Programs */}
+        <section className="space-y-4 rounded-lg border border-border/50 bg-card p-5 shadow-soft">
+          <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+            <div>
+              <h2 className="font-heading text-xl font-semibold text-foreground">Programs</h2>
+              <p className="text-sm text-muted-foreground">
+                Programs shown in the event card's "View Program Details" pop-up, each with its own poster and
+                on-site registration.
+              </p>
+            </div>
+            <Button type="button" variant="outline" onClick={addProgram}>
+              <Plus size={16} />
+              Add Program
+            </Button>
+          </div>
+
+          {programs.length === 0 ? (
+            <div className="rounded-lg border-2 border-dashed border-border p-6 text-center">
+              <p className="text-sm text-muted-foreground">No programs added yet.</p>
+            </div>
+          ) : (
+            <div className="space-y-5">
+              {programs.map((program, index) => (
+                <div key={program.id || index} className="space-y-4 rounded-lg border border-border p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                      <GripVertical size={16} />
+                      Program #{index + 1}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button type="button" variant="outline" size="sm" onClick={() => moveProgram(index, index - 1)} disabled={index === 0}>
+                        Up
+                      </Button>
+                      <Button type="button" variant="outline" size="sm" onClick={() => moveProgram(index, index + 1)} disabled={index === programs.length - 1}>
+                        Down
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="text-destructive hover:text-destructive"
+                        onClick={() => removeProgram(index)}
+                      >
+                        <Trash2 size={16} />
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Program Title</Label>
+                    <Input
+                      value={program.title}
+                      onChange={(e) => updateProgram(index, { title: e.target.value })}
+                      placeholder="e.g., Meet the Panel"
+                    />
+                  </div>
+
+                  <ImageUpload
+                    value={program.poster_url}
+                    onChange={(url) => updateProgram(index, { poster_url: url })}
+                    label="Poster"
+                  />
+
+                  <div className="space-y-2">
+                    <Label>Description</Label>
+                    <RichTextEditor
+                      value={program.description}
+                      onChange={(description) => updateProgram(index, { description })}
+                      placeholder="Details about this program..."
+                      minHeightClassName="min-h-[150px]"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-3 rounded-lg bg-secondary/30 p-3">
+                    <Switch
+                      checked={program.registration_enabled}
+                      onCheckedChange={(checked) => updateProgram(index, { registration_enabled: checked })}
+                    />
+                    <span className="text-sm text-muted-foreground">
+                      {program.registration_enabled ? 'On-site registration is open' : 'Registration is closed'}
+                    </span>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>External Registration Link (optional)</Label>
+                    <Input
+                      type="url"
+                      value={program.registration_url}
+                      onChange={(e) => updateProgram(index, { registration_url: e.target.value })}
+                      placeholder="https://... (shown as an alternative to the on-site form)"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-3 rounded-lg bg-secondary/30 p-3">
+                    <Switch
+                      checked={program.is_published}
+                      onCheckedChange={(checked) => updateProgram(index, { is_published: checked })}
+                    />
+                    <span className="text-sm text-muted-foreground">
+                      {program.is_published ? 'Show this program on the website' : 'Keep this program hidden'}
+                    </span>
+                  </div>
+
+                  {program.id && (
+                    <RegistrationsList
+                      registrations={registrations.filter((r) => r.program_id === program.id)}
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
 
         <div className="flex gap-4">
           <Button type="submit" variant="hero" disabled={isLoading}>

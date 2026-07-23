@@ -8,6 +8,7 @@ import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Upload, X, Loader2 } from 'lucide-react';
 import { RichTextEditor } from '@/components/admin/RichTextEditor';
+import { AdminFormSkeleton } from "@/components/shared/skeletons";
 
 export default function AdminShopItemForm() {
   const { id } = useParams();
@@ -141,9 +142,7 @@ export default function AdminShopItemForm() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-      </div>
+      <AdminFormSkeleton />
     );
   }
 

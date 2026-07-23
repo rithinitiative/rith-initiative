@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Save, Image as ImageIcon, Video, Link as LinkIcon, X, Loader2, Upload } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { RichTextEditor } from '@/components/admin/RichTextEditor';
+import { AdminFormSkeleton } from "@/components/shared/skeletons";
 
 interface UpdateFormData {
   title: string;
@@ -245,9 +246,7 @@ export default function AdminUpdateForm() {
 
   if (isFetching) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
+      <AdminFormSkeleton />
     );
   }
 

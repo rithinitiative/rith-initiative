@@ -6,6 +6,7 @@ import { PageMeta } from "@/components/shared/PageMeta";
 import { SectionDivider } from "@/components/shared/SectionDivider";
 import { ScrollReveal } from "@/components/shared/ScrollReveal";
 import { PlaceholderImage } from "@/components/shared/PlaceholderImage";
+import { CardGridSkeleton } from "@/components/shared/skeletons";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { createBreadcrumbSchema, createWebPageSchema } from "@/lib/seo";
@@ -112,9 +113,7 @@ export default function Projects() {
       <section className="section-padding">
         <div className="container-wide">
           {isLoading ? (
-            <div className="flex justify-center py-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-            </div>
+            <CardGridSkeleton />
           ) : projects.length > 0 ? (
             <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
               {projects.map((project, index) => (

@@ -132,6 +132,33 @@
     @apply py-10 md:py-16 lg:py-24;
   }
 
+  /* Default spacing for the divider/heading lives here (not as inline utility
+     classes) so the .compact-page overrides below can win by specificity within
+     the same layer. */
+  .section-divider {
+    @apply py-4;
+  }
+
+  .section-heading {
+    @apply mb-8 md:mb-12;
+  }
+
+  /* Compact vertical rhythm for all pages except the homepage. Tightens the
+     space between sections, dividers, and headings without changing the design
+     language. Scoped under .compact-page (applied in Layout) so the homepage
+     keeps its original, roomier spacing. */
+  .compact-page .section-padding {
+    @apply py-8 md:py-10 lg:py-14;
+  }
+
+  .compact-page .section-divider {
+    @apply py-1.5;
+  }
+
+  .compact-page .section-heading {
+    @apply mb-6 md:mb-8;
+  }
+
   .text-balance {
     text-wrap: balance;
   }

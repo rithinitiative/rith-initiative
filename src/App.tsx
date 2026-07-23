@@ -7,6 +7,7 @@ import { Suspense, lazy } from "react";
 import { AuthProvider } from "@/hooks/useAuth";
 import { HelmetProvider } from "react-helmet-async";
 import { ScrollToTop } from "@/components/shared/ScrollToTop";
+import { PageSkeleton } from "@/components/shared/skeletons";
 
 const queryClient = new QueryClient();
 
@@ -37,13 +38,10 @@ const AdminSubscribers = lazy(() => import("./pages/admin/AdminSubscribers"));
 const AdminShop = lazy(() => import("./pages/admin/AdminShop"));
 const AdminShopItemForm = lazy(() => import("./pages/admin/AdminShopItemForm"));
 const AdminTeam = lazy(() => import("./pages/admin/AdminTeam"));
+const AdminSettings = lazy(() => import("./pages/admin/AdminSettings"));
 
 function RouteLoadingFallback() {
-  return (
-    <div className="min-h-[40vh] flex items-center justify-center" aria-live="polite" aria-busy="true">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-    </div>
-  );
+  return <PageSkeleton />;
 }
 
 function EventShareRedirect() {
@@ -94,6 +92,7 @@ const App = () => (
                 <Route path="team" element={<AdminTeam />} />
                 <Route path="users" element={<AdminUsers />} />
                 <Route path="subscribers" element={<AdminSubscribers />} />
+                <Route path="settings" element={<AdminSettings />} />
                 <Route path="shop" element={<AdminShop />} />
                 <Route path="shop/new" element={<AdminShopItemForm />} />
                 <Route path="shop/:id" element={<AdminShopItemForm />} />

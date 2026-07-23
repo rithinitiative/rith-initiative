@@ -2,8 +2,9 @@ import { useEffect } from 'react';
 import { useNavigate, Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
-import { Calendar, LogOut, Home, LayoutDashboard, Users, Mail, Bell, Image, ShoppingBag, UserRound, FolderKanban, FileText } from 'lucide-react';
+import { Calendar, LogOut, Home, LayoutDashboard, Users, Mail, Bell, Image, ShoppingBag, UserRound, FolderKanban, FileText, Settings } from 'lucide-react';
 import logo from '@/assets/logo.png';
+import { AdminListSkeleton } from "@/components/shared/skeletons";
 
 export default function AdminDashboard() {
   const { user, isAdmin, isLoading, signOut } = useAuth();
@@ -23,8 +24,8 @@ export default function AdminDashboard() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      <div className="min-h-screen bg-background p-6">
+        <AdminListSkeleton />
       </div>
     );
   }
@@ -44,6 +45,7 @@ export default function AdminDashboard() {
     { href: '/admin/team', label: 'Rith Team', icon: UserRound },
     { href: '/admin/users', label: 'Administrators', icon: Users },
     { href: '/admin/subscribers', label: 'Subscribers', icon: Mail },
+    { href: '/admin/settings', label: 'Settings', icon: Settings },
   ];
 
   const isActive = (href: string, exact?: boolean) => {

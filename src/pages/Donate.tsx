@@ -4,9 +4,11 @@ import { SectionHeading } from "@/components/shared/SectionHeading";
 import { SectionDivider } from "@/components/shared/SectionDivider";
 import { ScrollReveal } from "@/components/shared/ScrollReveal";
 import { Button } from "@/components/ui/button";
-import { Heart, Gift, Users, BookOpen, ExternalLink } from "lucide-react";
+import { Heart, Gift, Users, BookOpen, ExternalLink, QrCode } from "lucide-react";
 import { Link } from "react-router-dom";
 import { SITE_URL, createBreadcrumbSchema, createWebPageSchema } from "@/lib/seo";
+import { useSiteSetting } from "@/hooks/useSiteSetting";
+import { ZELLE_QR_SETTING_KEY } from "@/lib/siteSettings";
 
 const DONATION_LINK = "https://www.paypal.com/donate?hosted_button_id=LDD3U2Q5B59QE";
 
@@ -34,6 +36,7 @@ const impactAreas = [
 ];
 
 export default function Donate() {
+  const { data: zelleQrUrl } = useSiteSetting(ZELLE_QR_SETTING_KEY);
   const pageTitle = "Donate";
   const pageDescription = "Support The Rith Initiative, an Indian American 501(c)(3) nonprofit preserving Indian culture and arts in Virginia. Your tax-deductible donation makes a difference.";
   const donatePageSchema = createWebPageSchema({
@@ -135,6 +138,40 @@ export default function Donate() {
 
                 <p className="text-sm text-muted-foreground mt-6">Secure payment powered by PayPal</p>
               </div>
+            </div>
+          </ScrollReveal>
+        </div>
+      </section>
+
+      <SectionDivider />
+
+      {/* Pay with Zelle */}
+      <section className="section-padding">
+        <div className="container-narrow">
+          <ScrollReveal variant="scale">
+            <div className="bg-card rounded-3xl p-8 md:p-12 border border-border/50 shadow-elevated text-center">
+              <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-primary/10 flex items-center justify-center">
+                <QrCode className="w-8 h-8 text-primary" />
+              </div>
+              <h2 className="font-heading text-2xl md:text-3xl font-semibold text-foreground mb-3">
+                Prefer Zelle?
+              </h2>
+              <p className="text-muted-foreground mb-8 max-w-xl mx-auto leading-relaxed">
+                Scan the QR code below with your banking app to send your gift directly via Zelle.
+              </p>
+
+              {zelleQrUrl ? (
+                <img
+                  src={zelleQrUrl}
+                  alt="Zelle QR code to donate to The Rith Initiative"
+                  className="mx-auto h-56 w-56 rounded-xl border border-border/50 object-contain bg-white p-2"
+                />
+              ) : (
+                <div className="mx-auto flex h-56 w-56 flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border text-muted-foreground">
+                  <QrCode className="h-10 w-10 opacity-60" />
+                  <span className="px-4 text-sm">Zelle QR code coming soon</span>
+                </div>
+              )}
             </div>
           </ScrollReveal>
         </div>

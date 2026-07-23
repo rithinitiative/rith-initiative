@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight, Calendar, MapPin, Clock, Image, ExternalLink, Sparkles, BookOpen, ArrowRight, Copy } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar, MapPin, Clock, Image, ExternalLink, Sparkles, BookOpen, ArrowRight, Copy, Ticket } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -44,6 +44,8 @@ interface PastEventsBookProps {
   events: PastEvent[];
   eventMedia: Record<string, MediaItem[]>;
   onMediaClick: (eventId: string, index: number) => void;
+  eventPrograms?: Record<string, { id: string }[]>;
+  onViewPrograms?: (eventId: string) => void;
   browseInstruction?: string;
   focusedEventId?: string | null;
 }
@@ -120,6 +122,8 @@ export function PastEventsBook({
   events,
   eventMedia,
   onMediaClick,
+  eventPrograms,
+  onViewPrograms,
   browseInstruction = "Use the arrows to browse through past events",
   focusedEventId = null,
 }: PastEventsBookProps) {
@@ -309,6 +313,25 @@ export function PastEventsBook({
     });
   };
 
+  const renderProgramsButton = (event: PastEvent, compact = false) => {
+    const programs = eventPrograms?.[event.id];
+    if (!programs || programs.length === 0 || !onViewPrograms) return null;
+
+    return (
+      <div onClick={(e) => e.stopPropagation()} className={compact ? "mb-1.5 sm:mb-3" : "mb-3"}>
+        <Button
+          variant="hero"
+          size="sm"
+          className="gap-2 w-full"
+          onClick={() => onViewPrograms(event.id)}
+        >
+          <Ticket size={14} />
+          View Program Details
+        </Button>
+      </div>
+    );
+  };
+
   const renderMediaGallery = (event: PastEvent) => {
     const media = eventMedia[event.id];
     if (!media || media.length === 0) return null;
@@ -495,6 +518,9 @@ export function PastEventsBook({
               </div>
 
               {renderCopyLinkButton(event, true)}
+
+              {/* Program details button - above View Media */}
+              {renderProgramsButton(event, true)}
 
               {/* Media Button - after event details */}
               {hasMedia && (
@@ -792,6 +818,8 @@ export function PastEventsBook({
                         </div>
 
                         {renderCopyLinkButton(event)}
+
+                        {renderProgramsButton(event)}
 
                         {hasMedia && (
                           <div onClick={(e) => e.stopPropagation()} className="mb-3">

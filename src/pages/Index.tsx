@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { createWebPageSchema, organizationSchema, websiteSchema } from "@/lib/seo";
 import { sanitizeRichText } from "@/lib/richText";
+import { CardGridSkeleton, EventListSkeleton, ImageGridSkeleton } from "@/components/shared/skeletons";
 import {
   EVENT_ORDER_ENTITY_ID,
   EVENT_ORDER_ENTITY_TYPE,
@@ -196,9 +197,7 @@ function UpdatesPreviewSection() {
         </ScrollReveal>
 
         {isLoading ?
-        <div className="flex justify-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-          </div> :
+        <CardGridSkeleton count={3} /> :
         updates.length > 0 ?
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
             {updates.map((update, index) =>
@@ -360,9 +359,7 @@ function EventsPreviewSection() {
 
 
               {isLoading ?
-              <div className="flex justify-center py-12">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                </div> :
+              <EventListSkeleton count={3} /> :
               events.length > 0 ?
                 <div className="max-h-[28rem] space-y-4 overflow-y-auto pr-2 md:pr-3 rounded-xl [scrollbar-width:thin] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-primary/40">
                   {events.map((event, index) =>
@@ -533,9 +530,7 @@ function GalleryPreview() {
 
         </ScrollReveal>
         {isLoading ?
-        <div className="flex justify-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-          </div> :
+        <ImageGridSkeleton count={8} /> :
         galleryImages.length > 0 ?
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {galleryImages.map((img, i) =>

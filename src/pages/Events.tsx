@@ -11,6 +11,9 @@ import { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { MediaLightbox } from "@/components/shared/MediaLightbox";
+import { EventProgramsModal } from "@/components/shared/EventProgramsModal";
+import { EventProgram } from "@/lib/programs";
+import { EventsBookSkeleton } from "@/components/shared/skeletons";
 import { SITE_URL, createBreadcrumbSchema, createWebPageSchema } from "@/lib/seo";
 import {
   EVENT_ORDER_ENTITY_ID,
@@ -49,6 +52,8 @@ export default function Events() {
   const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
   const [pastEvents, setPastEvents] = useState<Event[]>([]);
   const [eventMedia, setEventMedia] = useState<Record<string, MediaItem[]>>({});
+  const [eventPrograms, setEventPrograms] = useState<Record<string, EventProgram[]>>({});
+  const [programsModalEventId, setProgramsModalEventId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxMedia, setLightboxMedia] = useState<MediaItem[]>([]);
@@ -103,6 +108,22 @@ export default function Events() {
             });
             setEventMedia(mediaByEvent);
           }
+
+          const { data: programs, error: programsError } = await supabase
+            .from('event_programs')
+            .select('id, event_id, title, description, poster_url, registration_enabled, registration_url, display_order')
+            .in('event_id', eventIds)
+            .eq('is_published', true)
+            .order('display_order', { ascending: true });
+
+          if (!programsError && programs) {
+            const programsByEvent: Record<string, EventProgram[]> = {};
+            programs.forEach((p) => {
+              if (!programsByEvent[p.event_id]) programsByEvent[p.event_id] = [];
+              programsByEvent[p.event_id].push(p as EventProgram);
+            });
+            setEventPrograms(programsByEvent);
+          }
         }
 
       } catch (error) {
@@ -137,6 +158,10 @@ export default function Events() {
       setLightboxOpen(true);
     }
   };
+
+  const programsModalEvent = programsModalEventId
+    ? [...upcomingEvents, ...pastEvents].find((event) => event.id === programsModalEventId) || null
+    : null;
 
   const pageTitle = "Events & Programs";
   const pageDescription = "Discover upcoming Indian cultural events, festivals, Diwali celebrations, and community gatherings hosted by The Rith Initiative in Virginia.";
@@ -219,15 +244,15 @@ export default function Events() {
           </ScrollReveal>
           
           {isLoading ? (
-            <div className="flex justify-center py-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-            </div>
+            <EventsBookSkeleton />
           ) : upcomingEvents.length > 0 ? (
             <ScrollReveal variant="fade-up" delay={100}>
-              <PastEventsBook 
+              <PastEventsBook
                 events={upcomingEvents}
                 eventMedia={eventMedia}
                 onMediaClick={openMediaLightbox}
+                eventPrograms={eventPrograms}
+                onViewPrograms={setProgramsModalEventId}
                 browseInstruction="Use the arrows to browse through upcoming events"
                 focusedEventId={focusedEventId}
               />
@@ -258,15 +283,15 @@ export default function Events() {
           </ScrollReveal>
           
           {isLoading ? (
-            <div className="flex justify-center py-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-            </div>
+            <EventsBookSkeleton />
           ) : (
             <ScrollReveal variant="fade-up" delay={100}>
-              <PastEventsBook 
+              <PastEventsBook
                 events={pastEvents}
                 eventMedia={eventMedia}
                 onMediaClick={openMediaLightbox}
+                eventPrograms={eventPrograms}
+                onViewPrograms={setProgramsModalEventId}
                 browseInstruction="Use the arrows to browse through past events"
                 focusedEventId={focusedEventId}
               />
@@ -307,6 +332,18 @@ export default function Events() {
         open={lightboxOpen}
         onOpenChange={setLightboxOpen}
       />
+
+      {/* Event Programs + Registration */}
+      {programsModalEvent && (
+        <EventProgramsModal
+          open={Boolean(programsModalEventId)}
+          onOpenChange={(isOpen) => {
+            if (!isOpen) setProgramsModalEventId(null);
+          }}
+          eventTitle={programsModalEvent.title}
+          programs={eventPrograms[programsModalEvent.id] || []}
+        />
+      )}
     </Layout>
   );
 }

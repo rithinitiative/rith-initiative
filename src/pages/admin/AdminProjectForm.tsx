@@ -12,6 +12,7 @@ import { ImageUpload } from '@/components/admin/ImageUpload';
 import { RichTextEditor } from '@/components/admin/RichTextEditor';
 import { createProjectSlug } from '@/lib/projects';
 import { getEditableRichText } from '@/lib/richText';
+import { AdminFormSkeleton } from "@/components/shared/skeletons";
 
 interface ProjectFormData {
   title: string;
@@ -139,9 +140,7 @@ export default function AdminProjectForm() {
 
   if (isFetching) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
+      <AdminFormSkeleton />
     );
   }
 

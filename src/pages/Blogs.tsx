@@ -6,6 +6,7 @@ import { PageMeta } from "@/components/shared/PageMeta";
 import { SectionHeading } from "@/components/shared/SectionHeading";
 import { PlaceholderImage } from "@/components/shared/PlaceholderImage";
 import { SectionDivider } from "@/components/shared/SectionDivider";
+import { CardGridSkeleton } from "@/components/shared/skeletons";
 import { BlogDetailModal } from "@/components/shared/BlogDetailModal";
 import { ScrollReveal } from "@/components/shared/ScrollReveal";
 import { useState, useEffect } from "react";
@@ -29,7 +30,7 @@ interface BlogPost {
 
 function HeroSection() {
   return (
-    <section className="relative py-20 md:py-28 bg-gradient-to-b from-background to-secondary/30">
+    <section className="relative py-12 md:py-16 bg-gradient-to-b from-background to-secondary/30">
       <div className="container-wide">
         <ScrollReveal variant="fade-up">
           <div className="text-center max-w-3xl mx-auto">
@@ -133,9 +134,7 @@ function BlogsSection() {
         )}
 
         {isLoading ? (
-          <div className="flex justify-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-          </div>
+          <CardGridSkeleton />
         ) : filteredPosts.length > 0 ? (
           <>
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">

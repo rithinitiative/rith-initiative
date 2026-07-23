@@ -3,6 +3,7 @@ import { PageMeta } from "@/components/shared/PageMeta";
 import { SectionHeading } from "@/components/shared/SectionHeading";
 import { SectionDivider } from "@/components/shared/SectionDivider";
 import { ScrollReveal } from "@/components/shared/ScrollReveal";
+import { CardGridSkeleton } from "@/components/shared/skeletons";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { ShoppingBag, ExternalLink, X } from "lucide-react";
@@ -117,9 +118,7 @@ export default function Shop() {
           </ScrollReveal>
 
           {isLoading ? (
-            <div className="flex justify-center py-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-            </div>
+            <CardGridSkeleton className="mt-8 sm:grid-cols-2 lg:grid-cols-3" />
           ) : items.length === 0 ? (
             <ScrollReveal variant="fade-up" delay={100}>
               <div className="flex flex-col items-center justify-center py-16 text-center">

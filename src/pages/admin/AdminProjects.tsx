@@ -6,6 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Calendar, Edit, ExternalLink, FolderKanban } from 'lucide-react';
 import { formatEventDateRange } from '@/lib/events';
 import { getProjectPath, sortProjects } from '@/lib/projects';
+import { AdminListSkeleton } from "@/components/shared/skeletons";
 
 interface ProjectEvent {
   id: string;
@@ -52,9 +53,7 @@ export default function AdminProjects() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
+      <AdminListSkeleton />
     );
   }
 

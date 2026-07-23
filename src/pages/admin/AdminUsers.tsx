@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { toast } from 'sonner';
 import { UserPlus, Trash2, Shield, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
+import { AdminListSkeleton } from "@/components/shared/skeletons";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -202,11 +203,7 @@ export default function AdminUsers() {
   };
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
+    return <AdminListSkeleton />;
   }
 
   return (

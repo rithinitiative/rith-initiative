@@ -6,6 +6,7 @@ import { NewsletterPopup } from "@/components/shared/NewsletterPopup";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { getProjectPath, sortProjects } from "@/lib/projects";
+import { getSubsectionAnchor } from "@/lib/subsections";
 import { isProjectRecord } from "@/lib/postClassification";
 import logo from "@/assets/logo.png";
 
@@ -36,6 +37,9 @@ export function Header() {
   const [email, setEmail] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [projects, setProjects] = useState<ProjectNavItem[]>([]);
+  // Per-project jump-nav items (Overview → subsections → Interviews/Gallery),
+  // keyed by project id. Only projects that have subsections get an entry.
+  const [projectSubnav, setProjectSubnav] = useState<Record<string, { id: string; label: string }[]>>({});
   const location = useLocation();
 
   useEffect(() => {
@@ -48,9 +52,54 @@ export function Header() {
         .order("project_display_order", { ascending: true })
         .order("published_at", { ascending: false });
 
-      if (!error) {
-        setProjects(sortProjects(((data || []) as ProjectNavItem[]).filter(isProjectRecord)));
+      if (error) return;
+
+      const orderedProjects = sortProjects(((data || []) as ProjectNavItem[]).filter(isProjectRecord));
+      setProjects(orderedProjects);
+
+      const ids = orderedProjects.map((project) => project.id);
+      if (ids.length === 0) return;
+
+      // Fetch the pieces that make up each project's on-page nav, batched across
+      // all projects. Interviews/Gallery are only listed when the project has them.
+      const [subsRes, interviewRes, mediaRes] = await Promise.all([
+        supabase
+          .from("project_subsections")
+          .select("id, project_id, title, anchor_slug, display_order")
+          .in("project_id", ids)
+          .eq("is_published", true)
+          .order("display_order", { ascending: true }),
+        supabase
+          .from("project_interviews")
+          .select("project_id")
+          .in("project_id", ids)
+          .eq("is_published", true),
+        supabase
+          .from("media")
+          .select("entity_id")
+          .eq("entity_type", "blog_post")
+          .in("entity_id", ids),
+      ]);
+
+      const subsByProject: Record<string, { id: string; label: string }[]> = {};
+      ((subsRes.data || []) as Array<{ project_id: string; anchor_slug: string | null; title: string }>).forEach((sub) => {
+        if (!subsByProject[sub.project_id]) subsByProject[sub.project_id] = [];
+        subsByProject[sub.project_id].push({ id: getSubsectionAnchor(sub), label: sub.title });
+      });
+
+      const interviewSet = new Set(((interviewRes.data || []) as Array<{ project_id: string }>).map((row) => row.project_id));
+      const mediaSet = new Set(((mediaRes.data || []) as Array<{ entity_id: string }>).map((row) => row.entity_id));
+
+      const navMap: Record<string, { id: string; label: string }[]> = {};
+      for (const project of orderedProjects) {
+        const subs = subsByProject[project.id];
+        if (!subs || subs.length === 0) continue; // plain link when there are no subsections
+        const items = [{ id: "overview", label: "Overview" }, ...subs];
+        if (interviewSet.has(project.id)) items.push({ id: "interviews", label: "Interviews" });
+        if (mediaSet.has(project.id)) items.push({ id: "gallery", label: "Gallery" });
+        navMap[project.id] = items;
       }
+      setProjectSubnav(navMap);
     };
 
     fetchProjects();
@@ -124,15 +173,32 @@ export function Header() {
                       >
                         All Projects
                       </Link>
-                      {projects.map((project) => (
-                        <Link
-                          key={project.id}
-                          to={getProjectPath(project)}
-                          className="block rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground"
-                        >
-                          {project.title}
-                        </Link>
-                      ))}
+                      {projects.map((project) => {
+                        const subItems = projectSubnav[project.id];
+                        return (
+                          <div key={project.id}>
+                            <Link
+                              to={getProjectPath(project)}
+                              className="block rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-secondary"
+                            >
+                              {project.title}
+                            </Link>
+                            {subItems && subItems.length > 0 && (
+                              <div className="mb-1 ml-3 flex flex-col border-l border-border/60 pl-2">
+                                {subItems.map((item) => (
+                                  <Link
+                                    key={item.id}
+                                    to={`${getProjectPath(project)}#${item.id}`}
+                                    className="rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground"
+                                  >
+                                    {item.label}
+                                  </Link>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 ) : (
@@ -188,16 +254,34 @@ export function Header() {
                     </Link>
                     {link.href === "/projects" && projects.length > 0 && (
                       <div className="ml-4 mt-1 flex flex-col gap-1 border-l border-border pl-3">
-                        {projects.map((project) => (
-                          <Link
-                            key={project.id}
-                            to={getProjectPath(project)}
-                            onClick={() => setIsMenuOpen(false)}
-                            className="py-1 text-sm text-muted-foreground hover:text-primary"
-                          >
-                            {project.title}
-                          </Link>
-                        ))}
+                        {projects.map((project) => {
+                          const subItems = projectSubnav[project.id];
+                          return (
+                            <div key={project.id}>
+                              <Link
+                                to={getProjectPath(project)}
+                                onClick={() => setIsMenuOpen(false)}
+                                className="block py-1 text-sm font-medium text-foreground/90 hover:text-primary"
+                              >
+                                {project.title}
+                              </Link>
+                              {subItems && subItems.length > 0 && (
+                                <div className="mb-1 ml-3 mt-0.5 flex flex-col gap-0.5 border-l border-border pl-3">
+                                  {subItems.map((item) => (
+                                    <Link
+                                      key={item.id}
+                                      to={`${getProjectPath(project)}#${item.id}`}
+                                      onClick={() => setIsMenuOpen(false)}
+                                      className="py-1 text-sm text-muted-foreground hover:text-primary"
+                                    >
+                                      {item.label}
+                                    </Link>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>

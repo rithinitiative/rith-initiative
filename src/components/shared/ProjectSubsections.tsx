@@ -137,12 +137,16 @@ function SubsectionBlock({
 interface ProjectSubsectionsProps {
   subsections: ProjectSubsection[];
   navItems: SubsectionNavItem[];
+  /** Rendered in the right column above the subsections (e.g. the project overview). */
+  leadingContent?: React.ReactNode;
 }
 
-export function ProjectSubsections({ subsections, navItems }: ProjectSubsectionsProps) {
+export function ProjectSubsections({ subsections, navItems, leadingContent }: ProjectSubsectionsProps) {
   const { data: zelleQrUrl } = useSiteSetting(ZELLE_QR_SETTING_KEY);
 
-  if (subsections.length === 0) return null;
+  if (subsections.length === 0 && !leadingContent) return null;
+
+  const showNav = navItems.length > 1;
 
   const handleJump = (event: React.MouseEvent<HTMLAnchorElement>, id: string) => {
     const target = document.getElementById(id);
@@ -154,8 +158,8 @@ export function ProjectSubsections({ subsections, navItems }: ProjectSubsections
   };
 
   return (
-    <div className="grid gap-10 lg:grid-cols-[220px_minmax(0,1fr)]">
-      {navItems.length > 1 && (
+    <div className={showNav ? "grid gap-10 lg:grid-cols-[220px_minmax(0,1fr)]" : ""}>
+      {showNav && (
         <aside className="lg:sticky lg:top-28 lg:h-max">
           <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
             On this page
@@ -175,7 +179,8 @@ export function ProjectSubsections({ subsections, navItems }: ProjectSubsections
         </aside>
       )}
 
-      <div className="space-y-10">
+      <div className="min-w-0 space-y-10">
+        {leadingContent}
         {subsections.map((subsection) => (
           <SubsectionBlock key={subsection.id} subsection={subsection} zelleQrUrl={zelleQrUrl ?? null} />
         ))}

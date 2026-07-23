@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 import { ArrowLeft, FileText, Headphones, Image as ImageIcon, UserRound } from "lucide-react";
 import { Layout } from "@/components/layout/Layout";
 import { PageMeta } from "@/components/shared/PageMeta";
@@ -128,6 +128,7 @@ function InterviewCard({ interview }: { interview: ProjectInterview }) {
 
 export default function ProjectDetail() {
   const { slug } = useParams();
+  const location = useLocation();
   const [project, setProject] = useState<Project | null>(null);
   const [interviews, setInterviews] = useState<ProjectInterview[]>([]);
   const [selectedInterviewCategory, setSelectedInterviewCategory] = useState<string | null>(null);
@@ -195,6 +196,18 @@ export default function ProjectDetail() {
     fetchProject();
   }, [slug]);
 
+  // Scroll to a subsection when arriving via a #hash (e.g. from the navbar's
+  // Projects dropdown). Waits until the data has rendered so the target exists.
+  useEffect(() => {
+    if (isLoading) return;
+    const targetId = location.hash.replace("#", "");
+    if (!targetId) return;
+    const raf = requestAnimationFrame(() => {
+      document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [isLoading, location.hash, subsections.length, interviews.length, media.length]);
+
   if (isLoading) {
     return (
       <Layout>
@@ -260,7 +273,7 @@ export default function ProjectDetail() {
       <section className="section-padding bg-secondary/20">
         <div className="container-wide">
           <ScrollReveal variant="fade-up">
-            <Button variant="ghost" className="mb-8 text-muted-foreground hover:text-foreground" asChild>
+            <Button variant="ghost" className="mb-8 text-muted-foreground hover:text-white" asChild>
               <Link to="/projects">
                 <ArrowLeft size={17} />
                 Projects
@@ -301,26 +314,38 @@ export default function ProjectDetail() {
 
       <SectionDivider />
 
-      <section id="overview" className="section-padding scroll-mt-28">
-        <div className="container-narrow">
-          <ScrollReveal variant="fade-up">
-            <div
-              className="text-muted-foreground leading-relaxed [&_a]:font-medium [&_a]:text-primary [&_a]:underline [&_a]:underline-offset-2 [&_h2]:font-heading [&_h2]:text-2xl [&_h2]:font-semibold [&_h2]:text-foreground [&_ol]:my-4 [&_ol]:list-decimal [&_ol]:space-y-2 [&_ol]:pl-6 [&_p]:mb-5 [&_ul]:my-4 [&_ul]:list-disc [&_ul]:space-y-2 [&_ul]:pl-6"
-              dangerouslySetInnerHTML={{ __html: sanitizeRichText(project.content) }}
+      {subsections.length > 0 ? (
+        // Overview shares the two-column grid with the sponsorship subsections so
+        // the sticky "On this page" nav sits beside the overview, not below it.
+        <section className="section-padding">
+          <div className="container-wide">
+            <ProjectSubsections
+              subsections={subsections}
+              navItems={subsectionNavItems}
+              leadingContent={
+                <div id="overview" className="scroll-mt-28">
+                  <ScrollReveal variant="fade-up">
+                    <div
+                      className="text-muted-foreground leading-relaxed [&_a]:font-medium [&_a]:text-primary [&_a]:underline [&_a]:underline-offset-2 [&_h2]:font-heading [&_h2]:text-2xl [&_h2]:font-semibold [&_h2]:text-foreground [&_ol]:my-4 [&_ol]:list-decimal [&_ol]:space-y-2 [&_ol]:pl-6 [&_p]:mb-5 [&_ul]:my-4 [&_ul]:list-disc [&_ul]:space-y-2 [&_ul]:pl-6"
+                      dangerouslySetInnerHTML={{ __html: sanitizeRichText(project.content) }}
+                    />
+                  </ScrollReveal>
+                </div>
+              }
             />
-          </ScrollReveal>
-        </div>
-      </section>
-
-      {subsections.length > 0 && (
-        <>
-          <SectionDivider />
-          <section className="section-padding">
-            <div className="container-wide">
-              <ProjectSubsections subsections={subsections} navItems={subsectionNavItems} />
-            </div>
-          </section>
-        </>
+          </div>
+        </section>
+      ) : (
+        <section id="overview" className="section-padding scroll-mt-28">
+          <div className="container-narrow">
+            <ScrollReveal variant="fade-up">
+              <div
+                className="text-muted-foreground leading-relaxed [&_a]:font-medium [&_a]:text-primary [&_a]:underline [&_a]:underline-offset-2 [&_h2]:font-heading [&_h2]:text-2xl [&_h2]:font-semibold [&_h2]:text-foreground [&_ol]:my-4 [&_ol]:list-decimal [&_ol]:space-y-2 [&_ol]:pl-6 [&_p]:mb-5 [&_ul]:my-4 [&_ul]:list-disc [&_ul]:space-y-2 [&_ul]:pl-6"
+                dangerouslySetInnerHTML={{ __html: sanitizeRichText(project.content) }}
+              />
+            </ScrollReveal>
+          </div>
+        </section>
       )}
 
       {interviews.length > 0 && (

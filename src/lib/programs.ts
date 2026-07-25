@@ -9,6 +9,8 @@ export interface EventProgram {
   registration_mode: RegistrationMode;
   registration_url: string | null;
   capacity: number | null;
+  max_adults_per_registration: number;
+  max_minors_per_registration: number;
   display_order: number;
 }
 

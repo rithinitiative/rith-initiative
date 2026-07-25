@@ -12,6 +12,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { sanitizeRichText } from "@/lib/richText";
 import {
@@ -54,13 +61,14 @@ function ProgramRegistrationForm({
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => setForm((prev) => ({ ...prev, [field]: e.target.value }));
 
-  const updateCount = (field: "adults" | "minors") => (
-    e: React.ChangeEvent<HTMLInputElement>,
-  ) => {
-    const raw = parseInt(e.target.value, 10);
-    const value = Number.isNaN(raw) ? 0 : Math.max(0, raw);
-    setForm((prev) => ({ ...prev, [field]: value }));
-  };
+  const setCount = (field: "adults" | "minors") => (value: string) =>
+    setForm((prev) => ({ ...prev, [field]: parseInt(value, 10) || 0 }));
+
+  // Dropdown caps: the per-registration max, further limited by remaining spots.
+  const cap = (perRegMax: number) =>
+    remaining !== null ? Math.min(perRegMax, remaining) : perRegMax;
+  const adultOptions = Array.from({ length: cap(program.max_adults_per_registration) + 1 }, (_, i) => i);
+  const minorOptions = Array.from({ length: cap(program.max_minors_per_registration) + 1 }, (_, i) => i);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -200,26 +208,34 @@ function ProgramRegistrationForm({
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">
-          <Label htmlFor={`adults-${program.id}`}>Adults *</Label>
-          <Input
-            id={`adults-${program.id}`}
-            type="number"
-            min={0}
-            max={remaining ?? undefined}
-            value={form.adults}
-            onChange={updateCount("adults")}
-          />
+          <Label htmlFor={`adults-${program.id}`}>Adults</Label>
+          <Select value={String(form.adults)} onValueChange={setCount("adults")}>
+            <SelectTrigger id={`adults-${program.id}`}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {adultOptions.map((n) => (
+                <SelectItem key={n} value={String(n)}>
+                  {n}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <div className="space-y-1.5">
           <Label htmlFor={`minors-${program.id}`}>Minors</Label>
-          <Input
-            id={`minors-${program.id}`}
-            type="number"
-            min={0}
-            max={remaining ?? undefined}
-            value={form.minors}
-            onChange={updateCount("minors")}
-          />
+          <Select value={String(form.minors)} onValueChange={setCount("minors")}>
+            <SelectTrigger id={`minors-${program.id}`}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {minorOptions.map((n) => (
+                <SelectItem key={n} value={String(n)}>
+                  {n}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
       <div className="space-y-1.5">
@@ -279,7 +295,7 @@ export function EventProgramsModal({
                 )}
 
                 <div className="min-w-0">
-                  <h3 className="font-heading text-xl font-semibold text-foreground">{program.title}</h3>
+                  <h3 className="text-center font-heading text-xl font-semibold text-foreground">{program.title}</h3>
                   {program.description && (
                     <div
                       className="mt-2 text-sm leading-relaxed text-muted-foreground [&_a]:font-medium [&_a]:text-primary [&_a]:underline [&_a]:underline-offset-2 [&_h3]:mt-2 [&_h3]:font-heading [&_h3]:font-semibold [&_h3]:text-foreground [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-2 [&_p:last-child]:mb-0 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5"

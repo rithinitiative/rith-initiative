@@ -295,6 +295,8 @@ export type Database = {
           event_id: string
           id: string
           is_published: boolean
+          max_adults_per_registration: number
+          max_minors_per_registration: number
           poster_url: string | null
           registration_enabled: boolean
           registration_mode: string
@@ -311,6 +313,8 @@ export type Database = {
           event_id: string
           id?: string
           is_published?: boolean
+          max_adults_per_registration?: number
+          max_minors_per_registration?: number
           poster_url?: string | null
           registration_enabled?: boolean
           registration_mode?: string
@@ -327,6 +331,8 @@ export type Database = {
           event_id?: string
           id?: string
           is_published?: boolean
+          max_adults_per_registration?: number
+          max_minors_per_registration?: number
           poster_url?: string | null
           registration_enabled?: boolean
           registration_mode?: string

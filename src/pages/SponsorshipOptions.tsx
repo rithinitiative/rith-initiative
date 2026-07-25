@@ -3,7 +3,11 @@ import { Heart } from "lucide-react";
 import { Layout } from "@/components/layout/Layout";
 import { supabase } from "@/integrations/supabase/client";
 import { useSiteSetting } from "@/hooks/useSiteSetting";
-import { ZELLE_QR_SETTING_KEY } from "@/lib/siteSettings";
+import {
+  ZELLE_QR_SETTING_KEY,
+  SPONSORSHIP_HERO_HEADING_KEY,
+  SPONSORSHIP_HERO_SUBTITLE_KEY,
+} from "@/lib/siteSettings";
 import { SponsorshipCard } from "@/components/shared/ProjectSubsections";
 import { ProjectSubsection } from "@/lib/subsections";
 
@@ -14,6 +18,8 @@ export default function SponsorshipOptions() {
   const [subsections, setSubsections] = useState<ProjectSubsection[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { data: zelleQrUrl } = useSiteSetting(ZELLE_QR_SETTING_KEY);
+  const { data: heroHeading } = useSiteSetting(SPONSORSHIP_HERO_HEADING_KEY);
+  const { data: heroSubtitle } = useSiteSetting(SPONSORSHIP_HERO_SUBTITLE_KEY);
 
   useEffect(() => {
     const fetchSponsorships = async () => {
@@ -69,13 +75,11 @@ export default function SponsorshipOptions() {
             Threads &amp; Bridges 2026
           </span>
           <h1 className="mt-6 font-heading text-4xl font-semibold text-foreground sm:text-5xl">
-            Sponsorship Options
+            {heroHeading?.trim() || "Sponsorship Options"}
           </h1>
           <p className="mx-auto mt-5 max-w-2xl text-lg text-muted-foreground">
-            {subsections.length > 0 ? `${countWord(subsections.length)} ways` : "Ways"} to support
-            Threads &amp; Bridges — a festival and living archive documenting Indian and
-            Indian-American life in Virginia. Every contribution helps us do right by the stories
-            people have trusted us with.
+            {heroSubtitle?.trim() ||
+              `${subsections.length > 0 ? `${countWord(subsections.length)} ways` : "Ways"} to support Threads & Bridges — a festival and living archive documenting Indian and Indian-American life in Virginia. Every contribution helps us do right by the stories people have trusted us with.`}
           </p>
         </div>
       </section>

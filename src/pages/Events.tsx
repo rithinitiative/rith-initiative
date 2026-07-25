@@ -112,7 +112,7 @@ export default function Events() {
 
           const { data: programs, error: programsError } = await supabase
             .from('event_programs')
-            .select('id, event_id, title, description, poster_url, registration_mode, registration_url, capacity, display_order')
+            .select('id, event_id, title, description, poster_url, registration_mode, registration_url, capacity, max_adults_per_registration, max_minors_per_registration, display_order')
             .in('event_id', eventIds)
             .eq('is_published', true)
             .order('display_order', { ascending: true });

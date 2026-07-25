@@ -43,6 +43,8 @@ interface ProgramFormData {
   registration_mode: RegistrationMode;
   registration_url: string;
   capacity: string;
+  max_adults: string;
+  max_minors: string;
   display_order: number;
   is_published: boolean;
 }
@@ -66,6 +68,8 @@ const emptyProgram = (displayOrder: number): ProgramFormData => ({
   registration_mode: 'onsite',
   registration_url: '',
   capacity: '',
+  max_adults: '10',
+  max_minors: '10',
   display_order: displayOrder,
   is_published: true,
 });
@@ -188,6 +192,8 @@ export default function AdminEventForm() {
             registration_mode: (program.registration_mode as RegistrationMode) || 'onsite',
             registration_url: program.registration_url || '',
             capacity: program.capacity != null ? String(program.capacity) : '',
+            max_adults: program.max_adults_per_registration != null ? String(program.max_adults_per_registration) : '10',
+            max_minors: program.max_minors_per_registration != null ? String(program.max_minors_per_registration) : '10',
             display_order: program.display_order || 0,
             is_published: program.is_published,
           })));
@@ -306,6 +312,14 @@ export default function AdminEventForm() {
           program.registration_mode === 'onsite' && program.capacity.trim()
             ? parseInt(program.capacity, 10)
             : null,
+        max_adults_per_registration:
+          program.registration_mode === 'onsite' && program.max_adults.trim()
+            ? parseInt(program.max_adults, 10)
+            : 10,
+        max_minors_per_registration:
+          program.registration_mode === 'onsite' && program.max_minors.trim()
+            ? parseInt(program.max_minors, 10)
+            : 10,
         display_order: index,
         is_published: program.is_published,
         created_by: user?.id,
@@ -786,6 +800,32 @@ export default function AdminEventForm() {
                       />
                       <p className="text-xs text-muted-foreground">
                         Maximum total attendees (adults + minors). Registration closes when the cap is reached.
+                      </p>
+
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="space-y-1">
+                          <Label htmlFor={`max_adults_${index}`}>Max adults per registration</Label>
+                          <Input
+                            id={`max_adults_${index}`}
+                            type="number"
+                            min={0}
+                            value={program.max_adults}
+                            onChange={(e) => updateProgram(index, { max_adults: e.target.value })}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label htmlFor={`max_minors_${index}`}>Max minors per registration</Label>
+                          <Input
+                            id={`max_minors_${index}`}
+                            type="number"
+                            min={0}
+                            value={program.max_minors}
+                            onChange={(e) => updateProgram(index, { max_minors: e.target.value })}
+                          />
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Caps how many people one email can register in a single submission (shown as dropdowns on the form).
                       </p>
                     </div>
                   )}

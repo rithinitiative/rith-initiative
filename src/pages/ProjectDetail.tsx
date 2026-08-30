@@ -12,7 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { createBreadcrumbSchema, createWebPageSchema } from "@/lib/seo";
 import { sanitizeRichText } from "@/lib/richText";
 import { isProjectRecord } from "@/lib/postClassification";
-import { ProjectSubsection, getSubsectionAnchor } from "@/lib/subsections";
+import { PROJECT_OVERVIEW_ANCHOR, ProjectSubsection, getSubsectionAnchor } from "@/lib/subsections";
 import { ProjectDetailSkeleton } from "@/components/shared/skeletons";
 
 interface Project {
@@ -253,7 +253,7 @@ export default function ProjectDetail() {
     : interviews;
 
   const subsectionNavItems: SubsectionNavItem[] = [
-    { id: "overview", label: "Overview" },
+    { id: PROJECT_OVERVIEW_ANCHOR, label: "Overview" },
     ...subsections.map((subsection) => ({ id: getSubsectionAnchor(subsection), label: subsection.title })),
     ...(interviews.length > 0 ? [{ id: "interviews", label: "Interviews" }] : []),
     ...(media.length > 0 ? [{ id: "gallery", label: "Gallery" }] : []),
@@ -323,7 +323,7 @@ export default function ProjectDetail() {
               subsections={subsections}
               navItems={subsectionNavItems}
               leadingContent={
-                <div id="overview" className="scroll-mt-28">
+                <div id={PROJECT_OVERVIEW_ANCHOR} className="scroll-mt-28">
                   <ScrollReveal variant="fade-up">
                     <div
                       className="text-muted-foreground leading-relaxed [&_a]:font-medium [&_a]:text-primary [&_a]:underline [&_a]:underline-offset-2 [&_h2]:font-heading [&_h2]:text-2xl [&_h2]:font-semibold [&_h2]:text-foreground [&_ol]:my-4 [&_ol]:list-decimal [&_ol]:space-y-2 [&_ol]:pl-6 [&_p]:mb-5 [&_ul]:my-4 [&_ul]:list-disc [&_ul]:space-y-2 [&_ul]:pl-6"
@@ -336,7 +336,7 @@ export default function ProjectDetail() {
           </div>
         </section>
       ) : (
-        <section id="overview" className="section-padding scroll-mt-28">
+        <section id={PROJECT_OVERVIEW_ANCHOR} className="section-padding scroll-mt-28">
           <div className="container-narrow">
             <ScrollReveal variant="fade-up">
               <div

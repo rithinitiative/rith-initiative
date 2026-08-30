@@ -1,11 +1,12 @@
 import { Link, useLocation } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Menu, X, Bell, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NewsletterPopup } from "@/components/shared/NewsletterPopup";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { NavItemRow, NavNode, buildNavTree, isExternalUrl } from "@/lib/nav";
+import { NavNode, isExternalUrl } from "@/lib/nav";
+import { useSiteNav } from "@/hooks/useSiteNav";
 import logo from "@/assets/logo.png";
 
 // Fallback used only if the nav table can't be read (keeps the site navigable).
@@ -25,23 +26,11 @@ export function Header() {
   const [showUpdatesModal, setShowUpdatesModal] = useState(false);
   const [email, setEmail] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [nav, setNav] = useState<NavNode[]>(FALLBACK_NAV);
   const location = useLocation();
 
-  useEffect(() => {
-    const fetchNav = async () => {
-      const { data, error } = await supabase
-        .from("nav_items")
-        .select("id, label, url, parent_id, display_order, opens_new_tab, is_published")
-        .eq("is_published", true)
-        .order("display_order", { ascending: true });
-
-      if (error || !data || data.length === 0) return; // keep fallback
-      setNav(buildNavTree(data as NavItemRow[]));
-    };
-
-    fetchNav();
-  }, []);
+  // Falls back to the static menu while loading, or if the nav can't be read.
+  const { data: fetchedNav } = useSiteNav();
+  const nav = fetchedNav && fetchedNav.length > 0 ? fetchedNav : FALLBACK_NAV;
 
   const isActivePath = (url: string | null): boolean => {
     if (!url || isExternalUrl(url)) return false;

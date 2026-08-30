@@ -1,5 +1,8 @@
 export type SubsectionType = "rich_text" | "sponsorship";
 
+/** Anchor of the project overview block, which always leads the jump-nav. */
+export const PROJECT_OVERVIEW_ANCHOR = "overview";
+
 export interface SubsectionTier {
   id: string;
   name: string;
